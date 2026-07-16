@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Menu, Moon, Search, Sun, LogOut, User, KeyRound } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useSettings } from '@/contexts/SettingsContext';
 import { IconButton } from '@/components/ui/Button';
 import { Avatar } from '@/components/ui/Avatar';
 import { Dropdown } from '@/components/ui/Dropdown';
@@ -13,6 +14,7 @@ import { roleLabels } from '@/utils/labels';
 export function Topbar({ onOpenMobileMenu }: { onOpenMobileMenu: () => void }) {
   const { profile, signOut } = useAuth();
   const { resolved, toggle } = useTheme();
+  const { branding } = useSettings();
   const navigate = useNavigate();
   const [searchOpen, setSearchOpen] = useState(false);
 
@@ -32,6 +34,14 @@ export function Topbar({ onOpenMobileMenu }: { onOpenMobileMenu: () => void }) {
       <IconButton label="Abrir menu" className="lg:hidden" onClick={onOpenMobileMenu}>
         <Menu size={20} />
       </IconButton>
+
+      {branding.logoUrl && (
+        <img
+          src={branding.logoUrl}
+          alt="Gestão Atlética"
+          className="h-8 w-8 shrink-0 rounded-lg object-contain lg:hidden"
+        />
+      )}
 
       <button
         onClick={() => setSearchOpen(true)}

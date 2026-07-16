@@ -15,7 +15,7 @@ export default defineConfig({
     tailwindcss(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['favicon.svg', 'icons/icon-192.png', 'icons/icon-512.png'],
+      includeAssets: ['favicon.png', 'favicon-32.png', 'icons/icon-192.png', 'icons/icon-512.png', 'branding/atletica-logo.png'],
       manifest: {
         name: 'Gestão Atlética — Atlética Inatel',
         short_name: 'Gestão Atlética',

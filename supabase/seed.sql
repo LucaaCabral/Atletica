@@ -79,7 +79,7 @@ insert into public.financial_categories (name, type, color) values
 -- Configurações padrão (paleta oficial já aplicada)
 insert into public.app_settings (key, value) values
   ('general', '{"organizationName": "Associação Atlética Acadêmica do Inatel", "systemName": "Gestão Atlética", "description": "Sistema de gestão da Atlética do Inatel", "contactEmail": "", "instagram": "", "website": ""}'),
-  ('branding', '{"primaryColor": "#2C2E43", "secondaryColor": "#FFC100", "defaultTheme": "system", "logoUrl": "", "symbolUrl": ""}'),
+  ('branding', '{"primaryColor": "#2C2E43", "secondaryColor": "#FFC100", "defaultTheme": "system", "logoUrl": "/branding/atletica-logo.png", "symbolUrl": ""}'),
   ('club', '{"planName": "Sócio Toroloco", "defaultValidityMonths": 6}'),
   ('doc_categories', '["Contratos", "Atas", "Regulamentos", "Orçamentos", "Notas fiscais", "Comprovantes", "Propostas", "Relatórios", "Termos", "Artes", "Fotos", "Outros"]'),
   ('event_categories', '["Festa", "Campeonato", "Jogos universitários", "Reunião interna", "Recepção", "Ação social", "Outro"]'),

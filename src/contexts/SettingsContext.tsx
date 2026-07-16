@@ -18,7 +18,7 @@ const DEFAULT_BRANDING: BrandingSettings = {
   primaryColor: '#2C2E43',
   secondaryColor: '#FFC100',
   defaultTheme: 'system',
-  logoUrl: '',
+  logoUrl: '/branding/atletica-logo.png',
   symbolUrl: '',
 };
 

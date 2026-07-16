@@ -93,32 +93,6 @@ create table public.sectors (
   updated_at timestamptz not null default now()
 );
 
--- Diretores/assessores por setor. Um diretor pode liderar vários setores
--- (sem limite de linhas por profile_id).
-create table public.sector_members (
-  sector_id uuid not null references public.sectors (id) on delete cascade,
-  profile_id uuid not null references public.profiles (id) on delete cascade,
-  role_in_sector text not null default 'assessor' check (role_in_sector in ('diretor', 'assessor')),
-  created_at timestamptz not null default now(),
-  primary key (sector_id, profile_id)
-);
-
--- Metas do setor.
-create table public.sector_goals (
-  id uuid primary key default gen_random_uuid(),
-  sector_id uuid not null references public.sectors (id) on delete cascade,
-  title text not null,
-  description text,
-  target_value numeric(12, 2),
-  current_value numeric(12, 2) not null default 0,
-  unit text,
-  due_date date,
-  status text not null default 'in_progress' check (status in ('not_started', 'in_progress', 'achieved', 'missed')),
-  created_by uuid references public.profiles (id) on delete set null,
-  created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now()
-);
-
 create table public.positions (
   id uuid primary key default gen_random_uuid(),
   name text not null,
@@ -147,6 +121,32 @@ create table public.profiles (
 alter table public.sectors
   add constraint sectors_responsible_fk
   foreign key (responsible_id) references public.profiles (id) on delete set null;
+
+-- Diretores/assessores por setor. Um diretor pode liderar vários setores
+-- (sem limite de linhas por profile_id).
+create table public.sector_members (
+  sector_id uuid not null references public.sectors (id) on delete cascade,
+  profile_id uuid not null references public.profiles (id) on delete cascade,
+  role_in_sector text not null default 'assessor' check (role_in_sector in ('diretor', 'assessor')),
+  created_at timestamptz not null default now(),
+  primary key (sector_id, profile_id)
+);
+
+-- Metas do setor.
+create table public.sector_goals (
+  id uuid primary key default gen_random_uuid(),
+  sector_id uuid not null references public.sectors (id) on delete cascade,
+  title text not null,
+  description text,
+  target_value numeric(12, 2),
+  current_value numeric(12, 2) not null default 0,
+  unit text,
+  due_date date,
+  status text not null default 'in_progress' check (status in ('not_started', 'in_progress', 'achieved', 'missed')),
+  created_by uuid references public.profiles (id) on delete set null,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
 
 create table public.authorized_emails (
   id uuid primary key default gen_random_uuid(),
