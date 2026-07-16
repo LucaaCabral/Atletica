@@ -12,8 +12,12 @@ import { ForgotPasswordPage } from '@/pages/auth/ForgotPasswordPage';
 import { ResetPasswordPage } from '@/pages/auth/ResetPasswordPage';
 
 import { DashboardPage } from '@/pages/DashboardPage';
+import { ExecutiveDashboardPage } from '@/pages/ExecutiveDashboardPage';
+import { PendingItemsPage } from '@/pages/PendingItemsPage';
 import { MembersPage } from '@/pages/members/MembersPage';
 import { MemberDetailPage } from '@/pages/members/MemberDetailPage';
+import { SectorsPage } from '@/pages/sectors/SectorsPage';
+import { SectorDetailPage } from '@/pages/sectors/SectorDetailPage';
 import { TasksPage } from '@/pages/tasks/TasksPage';
 import { EventsPage } from '@/pages/events/EventsPage';
 import { EventDetailPage } from '@/pages/events/EventDetailPage';
@@ -92,7 +96,23 @@ export function AppRoutes() {
       >
         <Route path="/" element={<DashboardPage />} />
         <Route
-          path="/diretoria"
+          path="/executivo"
+          element={
+            <RequirePermission permission="executive.view">
+              <ExecutiveDashboardPage />
+            </RequirePermission>
+          }
+        />
+        <Route
+          path="/pendencias"
+          element={
+            <RequirePermission permission="pending.view">
+              <PendingItemsPage />
+            </RequirePermission>
+          }
+        />
+        <Route
+          path="/membros"
           element={
             <RequirePermission permission="members.view">
               <MembersPage />
@@ -100,13 +120,15 @@ export function AppRoutes() {
           }
         />
         <Route
-          path="/diretoria/:id"
+          path="/membros/:id"
           element={
             <RequirePermission permission="members.view">
               <MemberDetailPage />
             </RequirePermission>
           }
         />
+        <Route path="/setores" element={<SectorsPage />} />
+        <Route path="/setores/:id" element={<SectorDetailPage />} />
         <Route
           path="/tarefas"
           element={

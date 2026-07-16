@@ -8,7 +8,7 @@ import { useToast } from '@/contexts/ToastContext';
 import { useQuery } from '@/hooks/useQuery';
 import { useDebounce } from '@/hooks/useDebounce';
 import { logActivity } from '@/services/activityLog';
-import type { Department, Member, Position } from '@/types';
+import type { Sector, Member, Position } from '@/types';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { Button, IconButton } from '@/components/ui/Button';
 import { Input, Select, SearchInput, Textarea } from '@/components/ui/Input';
@@ -25,7 +25,7 @@ interface MemberForm {
   nickname: string;
   email: string;
   phone: string;
-  department_id: string;
+  sector_id: string;
   position_id: string;
   joined_at: string;
   status: 'active' | 'inactive';
@@ -39,7 +39,7 @@ const emptyForm: MemberForm = {
   nickname: '',
   email: '',
   phone: '',
-  department_id: '',
+  sector_id: '',
   position_id: '',
   joined_at: '',
   status: 'active',
@@ -56,7 +56,7 @@ export function MembersPage() {
 
   const [view, setView] = useState<'cards' | 'table'>('cards');
   const [search, setSearch] = useState('');
-  const [departmentFilter, setDepartmentFilter] = useState('');
+  const [sectorFilter, setSectorFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<Member | null>(null);
@@ -64,10 +64,10 @@ export function MembersPage() {
   const [saving, setSaving] = useState(false);
   const debouncedSearch = useDebounce(search);
 
-  const departments = useQuery<Department[]>(async () => {
-    const { data, error } = await supabase.from('departments').select('*').order('name');
+  const departments = useQuery<Sector[]>(async () => {
+    const { data, error } = await supabase.from('sectors').select('*').order('name');
     if (error) throw new Error(error.message);
-    return (data ?? []) as Department[];
+    return (data ?? []) as Sector[];
   });
 
   const positions = useQuery<Position[]>(async () => {
@@ -79,17 +79,17 @@ export function MembersPage() {
   const members = useQuery<Member[]>(async () => {
     let query = supabase
       .from('members')
-      .select('*, department:departments(*), position:positions(*)')
+      .select('*, sector:sectors(*), position:positions(*)')
       .order('full_name');
     if (debouncedSearch) query = query.ilike('full_name', `%${debouncedSearch}%`);
-    if (departmentFilter) query = query.eq('department_id', departmentFilter);
+    if (sectorFilter) query = query.eq('sector_id', sectorFilter);
     if (statusFilter) query = query.eq('status', statusFilter);
     const { data, error } = await query;
     if (error) throw new Error(error.message);
     return (data ?? []) as Member[];
-  }, [debouncedSearch, departmentFilter, statusFilter]);
+  }, [debouncedSearch, sectorFilter, statusFilter]);
 
-  const departmentOptions = useMemo(
+  const sectorOptions = useMemo(
     () => (departments.data ?? []).map((d) => ({ value: d.id, label: d.name })),
     [departments.data],
   );
@@ -111,7 +111,7 @@ export function MembersPage() {
       nickname: member.nickname ?? '',
       email: member.email ?? '',
       phone: member.phone ?? '',
-      department_id: member.department_id ?? '',
+      sector_id: member.sector_id ?? '',
       position_id: member.position_id ?? '',
       joined_at: member.joined_at ?? '',
       status: member.status,
@@ -135,7 +135,7 @@ export function MembersPage() {
       nickname: form.nickname.trim() || null,
       email: form.email.trim() || null,
       phone: form.phone.trim() || null,
-      department_id: form.department_id || null,
+      sector_id: form.sector_id || null,
       position_id: form.position_id || null,
       joined_at: form.joined_at || null,
       status: form.status,
@@ -156,7 +156,7 @@ export function MembersPage() {
     toast.success(editing ? 'Membro atualizado.' : 'Membro cadastrado.');
     void logActivity({
       action: editing ? 'update' : 'create',
-      module: 'diretoria',
+      module: 'membros',
       entityType: 'member',
       summary: `${editing ? 'Atualizou' : 'Cadastrou'} o membro ${payload.full_name}`,
     });
@@ -178,7 +178,7 @@ export function MembersPage() {
         </span>
       ),
     },
-    { key: 'department', header: 'Diretoria', render: (m) => m.department?.name ?? '—', hideOnMobile: true },
+    { key: 'sector', header: 'Setor', render: (m) => m.sector?.name ?? '—', hideOnMobile: true },
     { key: 'position', header: 'Cargo', render: (m) => m.position?.name ?? '—', hideOnMobile: true },
     { key: 'joined', header: 'Entrada', render: (m) => formatDate(m.joined_at), hideOnMobile: true },
     {
@@ -207,9 +207,9 @@ export function MembersPage() {
   return (
     <div>
       <PageHeader
-        title="Diretoria"
+        title="Membros"
         description="Gestão dos membros da Atlética."
-        breadcrumbs={[{ label: 'Início', to: '/' }, { label: 'Diretoria' }]}
+        breadcrumbs={[{ label: 'Início', to: '/' }, { label: 'Membros' }]}
         actions={
           <>
             <div className="flex rounded-lg border border-[var(--color-border)] p-0.5">
@@ -248,11 +248,11 @@ export function MembersPage() {
           containerClassName="flex-1"
         />
         <Select
-          aria-label="Filtrar por diretoria"
-          options={departmentOptions}
-          placeholder="Todas as diretorias"
-          value={departmentFilter}
-          onChange={(e) => setDepartmentFilter(e.target.value)}
+          aria-label="Filtrar por setor"
+          options={sectorOptions}
+          placeholder="Todos os setores"
+          value={sectorFilter}
+          onChange={(e) => setSectorFilter(e.target.value)}
           className="sm:w-52"
         />
         <Select
@@ -281,7 +281,7 @@ export function MembersPage() {
           <EmptyState
             icon={<Users size={24} />}
             title="Nenhum membro encontrado"
-            description="Cadastre o primeiro membro da diretoria para começar."
+            description="Cadastre o primeiro membro para começar."
             actionLabel={canManage ? 'Cadastrar membro' : undefined}
             onAction={canManage ? openCreate : undefined}
           />
@@ -291,14 +291,14 @@ export function MembersPage() {
               <Card
                 key={m.id}
                 className="cursor-pointer p-4 transition-colors hover:border-[var(--color-primary)]"
-                onClick={() => navigate(`/diretoria/${m.id}`)}
+                onClick={() => navigate(`/membros/${m.id}`)}
               >
                 <div className="flex items-start gap-3">
                   <Avatar name={m.full_name} src={m.photo_url} size="lg" />
                   <div className="min-w-0 flex-1">
                     <p className="truncate font-semibold">{m.full_name}</p>
                     <p className="truncate text-sm text-[var(--color-text-secondary)]">
-                      {m.position?.name ?? 'Sem cargo'} · {m.department?.name ?? 'Sem diretoria'}
+                      {m.position?.name ?? 'Sem cargo'} · {m.sector?.name ?? 'Sem setor'}
                     </p>
                     {m.email && <p className="mt-1 truncate text-xs text-[var(--color-text-muted)]">{m.email}</p>}
                   </div>
@@ -326,7 +326,7 @@ export function MembersPage() {
             rows={members.data ?? []}
             rowKey={(m) => m.id}
             loading={members.loading}
-            onRowClick={(m) => navigate(`/diretoria/${m.id}`)}
+            onRowClick={(m) => navigate(`/membros/${m.id}`)}
             emptyState={
               <EmptyState
                 icon={<Users size={24} />}
@@ -379,11 +379,11 @@ export function MembersPage() {
             onChange={(e) => setForm({ ...form, phone: e.target.value })}
           />
           <Select
-            label="Diretoria"
-            options={departmentOptions}
+            label="Setor"
+            options={sectorOptions}
             placeholder="Selecione…"
-            value={form.department_id}
-            onChange={(e) => setForm({ ...form, department_id: e.target.value })}
+            value={form.sector_id}
+            onChange={(e) => setForm({ ...form, sector_id: e.target.value })}
           />
           <Select
             label="Cargo"

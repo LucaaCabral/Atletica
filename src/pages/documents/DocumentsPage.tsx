@@ -62,8 +62,8 @@ export function DocumentsPage() {
     if (error) throw new Error(error.message);
     const list = (data ?? []) as DocumentItem[];
     return list.filter((d) => {
-      if (d.access_level === 'admin') return profile?.role === 'admin';
-      if (d.access_level === 'directors') return profile ? ['admin', 'director'].includes(profile.role) : false;
+      if (d.access_level === 'admin') return profile ? ['presidente', 'vice'].includes(profile.role) : false;
+      if (d.access_level === 'directors') return profile ? ['presidente', 'vice', 'diretor'].includes(profile.role) : false;
       return true;
     });
   }, [debouncedSearch, categoryFilter, profile?.role]);

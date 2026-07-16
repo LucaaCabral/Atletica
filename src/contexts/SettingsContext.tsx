@@ -2,6 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState } 
 import type { ReactNode } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
+import { contrastText, mix, toRgba } from '@/utils/color';
 import type { BrandingSettings, ClubSettings, GeneralSettings, TaskLabelDef } from '@/types';
 
 const DEFAULT_GENERAL: GeneralSettings = {
@@ -14,8 +15,8 @@ const DEFAULT_GENERAL: GeneralSettings = {
 };
 
 const DEFAULT_BRANDING: BrandingSettings = {
-  primaryColor: '',
-  secondaryColor: '',
+  primaryColor: '#2C2E43',
+  secondaryColor: '#FFC100',
   defaultTheme: 'system',
   logoUrl: '',
   symbolUrl: '',
@@ -94,17 +95,26 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const root = document.documentElement;
+    const isDark = root.getAttribute('data-theme') === 'dark';
     if (branding.primaryColor) {
       root.style.setProperty('--color-primary', branding.primaryColor);
-      root.style.setProperty('--color-primary-hover', branding.primaryColor);
+      root.style.setProperty('--color-primary-hover', mix(branding.primaryColor, isDark ? 0.15 : -0.15));
+      root.style.setProperty('--color-primary-soft', toRgba(branding.primaryColor, isDark ? 0.2 : 0.08));
     } else {
       root.style.removeProperty('--color-primary');
       root.style.removeProperty('--color-primary-hover');
+      root.style.removeProperty('--color-primary-soft');
     }
     if (branding.secondaryColor) {
       root.style.setProperty('--color-secondary', branding.secondaryColor);
+      root.style.setProperty('--color-secondary-hover', mix(branding.secondaryColor, isDark ? 0.15 : -0.1));
+      root.style.setProperty('--color-secondary-soft', toRgba(branding.secondaryColor, isDark ? 0.18 : 0.16));
+      root.style.setProperty('--color-secondary-contrast', contrastText(branding.secondaryColor));
     } else {
       root.style.removeProperty('--color-secondary');
+      root.style.removeProperty('--color-secondary-hover');
+      root.style.removeProperty('--color-secondary-soft');
+      root.style.removeProperty('--color-secondary-contrast');
     }
   }, [branding.primaryColor, branding.secondaryColor]);
 

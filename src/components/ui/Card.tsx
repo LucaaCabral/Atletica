@@ -5,7 +5,7 @@ export function Card({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
   return (
     <div
       className={cn(
-        'rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] shadow-[var(--shadow-card)]',
+        'rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] shadow-[var(--shadow-card)]',
         className,
       )}
       {...props}
@@ -53,7 +53,7 @@ export function KpiCard({ title, value, icon, hint, tone = 'default', onClick, l
         type="button"
         onClick={onClick}
         className={cn(
-          'rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4 text-left',
+          'rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4 text-left',
           'shadow-[var(--shadow-card)] transition-colors hover:border-[var(--color-primary)] w-full',
         )}
       >
@@ -93,7 +93,7 @@ export function ProgressBar({
         className="h-2 w-full overflow-hidden rounded-full bg-[var(--color-surface-secondary)]"
       >
         <div
-          className="h-full rounded-full bg-[var(--color-primary)] transition-all"
+          className="h-full rounded-full bg-[var(--color-secondary)] transition-all"
           style={{ width: `${pct}%` }}
         />
       </div>

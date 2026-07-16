@@ -60,10 +60,10 @@ export function ReportsPage() {
         : Promise.resolve({ data: [] }),
       supabase
         .from('tasks')
-        .select('status, department_id, created_at')
+        .select('status, sector_id, created_at')
         .gte('created_at', `${startDate}T00:00:00`)
         .lte('created_at', `${endDate}T23:59:59`),
-      supabase.from('departments').select('id, name'),
+      supabase.from('sectors').select('id, name'),
       supabase
         .from('marketing_requests')
         .select('status, created_at')
@@ -101,7 +101,7 @@ export function ReportsPage() {
     }
     const financeByEvent = Array.from(byEvent.entries()).map(([name, v]) => ({ name, ...v }));
 
-    const taskList = (tasks.data ?? []) as { status: TaskStatus; department_id: string | null }[];
+    const taskList = (tasks.data ?? []) as { status: TaskStatus; sector_id: string | null }[];
     const statusCount = new Map<string, number>();
     for (const t of taskList) {
       statusCount.set(t.status, (statusCount.get(t.status) ?? 0) + 1);
@@ -114,7 +114,7 @@ export function ReportsPage() {
     const deptNames = new Map(((departments.data ?? []) as { id: string; name: string }[]).map((d) => [d.id, d.name]));
     const byDept = new Map<string, { concluidas: number; abertas: number }>();
     for (const t of taskList) {
-      const name = t.department_id ? (deptNames.get(t.department_id) ?? 'Sem diretoria') : 'Sem diretoria';
+      const name = t.sector_id ? (deptNames.get(t.sector_id) ?? 'Sem setor') : 'Sem setor';
       const bucket = byDept.get(name) ?? { concluidas: 0, abertas: 0 };
       if (t.status === 'done') bucket.concluidas += 1;
       else if (t.status !== 'cancelled') bucket.abertas += 1;
@@ -190,7 +190,7 @@ export function ReportsPage() {
     } else if (tab === 'tasks') {
       exportToCsv(
         `relatorio-tarefas-${todayISO()}`,
-        ['Diretoria', 'Concluídas', 'Em aberto'],
+        ['Setor', 'Concluídas', 'Em aberto'],
         data.tasksByDepartment.map((d) => [d.name, d.concluidas, d.abertas]),
       );
     } else if (tab === 'marketing') {
@@ -327,7 +327,7 @@ export function ReportsPage() {
                 )}
               </div>
             </ChartCard>
-            <ChartCard title="Tarefas por diretoria">
+            <ChartCard title="Tarefas por setor">
               <div className="h-64">
                 {report.data.tasksByDepartment.length === 0 ? (
                   <EmptyState title="Sem tarefas no período" />

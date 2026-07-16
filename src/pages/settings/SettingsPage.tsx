@@ -4,12 +4,13 @@ import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/contexts/ToastContext';
 import { useSettings } from '@/contexts/SettingsContext';
+import { useManagement } from '@/contexts/ManagementContext';
 import { useQuery } from '@/hooks/useQuery';
 import { logActivity } from '@/services/activityLog';
 import type {
   ActivityLog,
   AuthorizedEmail,
-  Department,
+  Sector,
   Position,
   Profile,
   TaskLabelDef,
@@ -25,7 +26,7 @@ import { Avatar } from '@/components/ui/Avatar';
 import { Modal, ConfirmModal } from '@/components/ui/Modal';
 import { Tabs } from '@/components/ui/Tabs';
 import { EmptyState } from '@/components/ui/State';
-import { roleLabels } from '@/utils/labels';
+import { roleLabels, sectorTypeLabels } from '@/utils/labels';
 import { formatDateTime, formatRelative } from '@/utils/format';
 
 const roleOptions = (Object.keys(roleLabels) as UserRole[]).map((r) => ({ value: r, label: roleLabels[r] }));
@@ -34,6 +35,8 @@ export function SettingsPage() {
   const { profile } = useAuth();
   const toast = useToast();
   const settings = useSettings();
+  const management = useManagement();
+  const isTop = profile ? ['presidente', 'vice'].includes(profile.role) : false;
 
   const [tab, setTab] = useState('general');
   const [saving, setSaving] = useState(false);
@@ -56,20 +59,26 @@ export function SettingsPage() {
   useEffect(() => setLabels(settings.taskLabels), [settings.taskLabels]);
 
   const [deptModal, setDeptModal] = useState(false);
-  const [editingDept, setEditingDept] = useState<Department | null>(null);
-  const [deptForm, setDeptForm] = useState({ name: '', description: '', responsible_id: '', is_active: true });
+  const [editingDept, setEditingDept] = useState<Sector | null>(null);
+  const [deptForm, setDeptForm] = useState({
+    name: '',
+    description: '',
+    responsible_id: '',
+    is_active: true,
+    sector_type: 'generic' as Sector['sector_type'],
+  });
 
   const [posModal, setPosModal] = useState(false);
   const [editingPos, setEditingPos] = useState<Position | null>(null);
   const [posForm, setPosForm] = useState({ name: '', description: '', access_level: '1' });
 
   const [inviteModal, setInviteModal] = useState(false);
-  const [inviteForm, setInviteForm] = useState({ email: '', role: 'member' as UserRole, department_id: '' });
+  const [inviteForm, setInviteForm] = useState({ email: '', role: 'assessor' as UserRole, sector_id: '' });
   const [deletingInvite, setDeletingInvite] = useState<AuthorizedEmail | null>(null);
 
-  const departments = useQuery<Department[]>(async () => {
-    const { data } = await supabase.from('departments').select('*').order('name');
-    return (data ?? []) as Department[];
+  const departments = useQuery<Sector[]>(async () => {
+    const { data } = await supabase.from('sectors').select('*').order('name');
+    return (data ?? []) as Sector[];
   });
 
   const positions = useQuery<Position[]>(async () => {
@@ -111,7 +120,7 @@ export function SettingsPage() {
 
   const saveDepartment = async () => {
     if (!deptForm.name.trim()) {
-      toast.error('Informe o nome da diretoria.');
+      toast.error('Informe o nome do setor.');
       return;
     }
     const payload = {
@@ -119,15 +128,16 @@ export function SettingsPage() {
       description: deptForm.description.trim() || null,
       responsible_id: deptForm.responsible_id || null,
       is_active: deptForm.is_active,
+      sector_type: deptForm.sector_type,
     };
     const result = editingDept
-      ? await supabase.from('departments').update(payload).eq('id', editingDept.id)
-      : await supabase.from('departments').insert(payload);
+      ? await supabase.from('sectors').update(payload).eq('id', editingDept.id)
+      : await supabase.from('sectors').insert(payload);
     if (result.error) {
       toast.error(`Erro: ${result.error.message}`);
       return;
     }
-    toast.success('Diretoria salva.');
+    toast.success('Setor salvo.');
     setDeptModal(false);
     void departments.refetch();
   };
@@ -163,7 +173,7 @@ export function SettingsPage() {
     const { error } = await supabase.from('authorized_emails').insert({
       email,
       role: inviteForm.role,
-      department_id: inviteForm.department_id || null,
+      sector_id: inviteForm.sector_id || null,
       invited_by: profile?.id ?? null,
     });
     if (error) {
@@ -177,7 +187,7 @@ export function SettingsPage() {
       summary: `Convidou ${email} como ${roleLabels[inviteForm.role]}`,
     });
     setInviteModal(false);
-    setInviteForm({ email: '', role: 'member', department_id: '' });
+    setInviteForm({ email: '', role: 'assessor', sector_id: '' });
     void invites.refetch();
   };
 
@@ -228,7 +238,7 @@ export function SettingsPage() {
         tabs={[
           { id: 'general', label: 'Geral' },
           { id: 'branding', label: 'Identidade visual' },
-          { id: 'departments', label: 'Diretorias' },
+          { id: 'departments', label: 'Setores' },
           { id: 'positions', label: 'Cargos' },
           { id: 'users', label: 'Usuários' },
           { id: 'categories', label: 'Categorias' },
@@ -240,7 +250,32 @@ export function SettingsPage() {
       />
 
       {tab === 'general' && (
-        <Card className="max-w-2xl p-5">
+        <div className="grid max-w-2xl gap-4">
+          <Card className="p-5">
+            <h3 className="mb-1 text-sm font-semibold">Gestão corrente</h3>
+            <p className="mb-3 text-sm text-[var(--color-text-secondary)]">
+              O sistema opera por temporada. Todo o histórico das gestões anteriores permanece salvo.
+            </p>
+            <div className="flex flex-wrap items-end gap-3">
+              <Select
+                label="Gestão ativa"
+                value={management.currentManagement?.id ?? ''}
+                disabled={!isTop}
+                options={management.managements.map((m) => ({ value: m.id, label: `${m.name} (${m.year})` }))}
+                onChange={(e) => {
+                  const id = e.target.value;
+                  void management.switchManagement(id).then(({ error }) => {
+                    if (error) toast.error(error);
+                    else toast.success('Gestão corrente atualizada.');
+                  });
+                }}
+              />
+              {!isTop && (
+                <p className="text-xs text-[var(--color-text-muted)]">Só presidente ou vice podem trocar a gestão.</p>
+              )}
+            </div>
+          </Card>
+          <Card className="p-5">
           <div className="grid gap-4">
             <Input
               label="Nome da Atlética"
@@ -296,7 +331,8 @@ export function SettingsPage() {
               </Button>
             </div>
           </div>
-        </Card>
+          </Card>
+        </div>
       )}
 
       {tab === 'branding' && (
@@ -310,7 +346,7 @@ export function SettingsPage() {
               <div className="flex items-end gap-2">
                 <Input
                   label="Cor primária"
-                  placeholder="#A31621"
+                  placeholder="#2C2E43"
                   value={brandingForm.primaryColor}
                   onChange={(e) => setBrandingForm({ ...brandingForm, primaryColor: e.target.value })}
                 />
@@ -323,7 +359,7 @@ export function SettingsPage() {
               <div className="flex items-end gap-2">
                 <Input
                   label="Cor secundária"
-                  placeholder="#F2B705"
+                  placeholder="#FFC100"
                   value={brandingForm.secondaryColor}
                   onChange={(e) => setBrandingForm({ ...brandingForm, secondaryColor: e.target.value })}
                 />
@@ -371,11 +407,11 @@ export function SettingsPage() {
             icon={<Plus size={15} />}
             onClick={() => {
               setEditingDept(null);
-              setDeptForm({ name: '', description: '', responsible_id: '', is_active: true });
+              setDeptForm({ name: '', description: '', responsible_id: '', is_active: true, sector_type: 'generic' });
               setDeptModal(true);
             }}
           >
-            Nova diretoria
+            Novo setor
           </Button>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {(departments.data ?? []).map((d) => (
@@ -384,11 +420,12 @@ export function SettingsPage() {
                   <div>
                     <p className="font-semibold">{d.name}</p>
                     {d.description && <p className="text-xs text-[var(--color-text-muted)]">{d.description}</p>}
+                    <Badge tone="neutral" className="mt-1">{sectorTypeLabels[d.sector_type]}</Badge>
                   </div>
                   <div className="flex items-center gap-1">
                     <Badge tone={d.is_active ? 'success' : 'neutral'}>{d.is_active ? 'Ativa' : 'Inativa'}</Badge>
                     <IconButton
-                      label="Editar diretoria"
+                      label="Editar setor"
                       size="sm"
                       onClick={() => {
                         setEditingDept(d);
@@ -397,6 +434,7 @@ export function SettingsPage() {
                           description: d.description ?? '',
                           responsible_id: d.responsible_id ?? '',
                           is_active: d.is_active,
+                          sector_type: d.sector_type,
                         });
                         setDeptModal(true);
                       }}
@@ -705,7 +743,7 @@ export function SettingsPage() {
       <Modal
         open={deptModal}
         onClose={() => setDeptModal(false)}
-        title={editingDept ? 'Editar diretoria' : 'Nova diretoria'}
+        title={editingDept ? 'Editar setor' : 'Novo setor'}
         footer={
           <>
             <Button variant="outline" onClick={() => setDeptModal(false)}>
@@ -719,6 +757,13 @@ export function SettingsPage() {
           <Input label="Nome" required value={deptForm.name} onChange={(e) => setDeptForm({ ...deptForm, name: e.target.value })} />
           <Textarea label="Descrição" value={deptForm.description} onChange={(e) => setDeptForm({ ...deptForm, description: e.target.value })} />
           <Select
+            label="Tipo de setor"
+            hint="Setores especializados ganham uma aba extra ligada ao módulo correspondente."
+            options={Object.entries(sectorTypeLabels).map(([value, label]) => ({ value, label }))}
+            value={deptForm.sector_type}
+            onChange={(e) => setDeptForm({ ...deptForm, sector_type: e.target.value as Sector['sector_type'] })}
+          />
+          <Select
             label="Responsável"
             options={(profiles.data ?? []).map((p) => ({ value: p.id, label: p.full_name }))}
             placeholder="Selecione…"
@@ -728,7 +773,7 @@ export function SettingsPage() {
           <Switch
             checked={deptForm.is_active}
             onChange={(checked) => setDeptForm({ ...deptForm, is_active: checked })}
-            label="Diretoria ativa"
+            label="Setor ativo"
           />
         </div>
       </Modal>
@@ -792,11 +837,11 @@ export function SettingsPage() {
             onChange={(e) => setInviteForm({ ...inviteForm, role: e.target.value as UserRole })}
           />
           <Select
-            label="Diretoria"
+            label="Setor"
             options={(departments.data ?? []).map((d) => ({ value: d.id, label: d.name }))}
-            placeholder="Nenhuma"
-            value={inviteForm.department_id}
-            onChange={(e) => setInviteForm({ ...inviteForm, department_id: e.target.value })}
+            placeholder="Nenhum"
+            value={inviteForm.sector_id}
+            onChange={(e) => setInviteForm({ ...inviteForm, sector_id: e.target.value })}
           />
         </div>
       </Modal>

@@ -18,7 +18,7 @@ import { useToast } from '@/contexts/ToastContext';
 import { useQuery } from '@/hooks/useQuery';
 import { logActivity } from '@/services/activityLog';
 import type {
-  Department,
+  Sector,
   Event,
   MarketingApproval,
   MarketingComment,
@@ -65,7 +65,7 @@ export function MarketingPage() {
   const [newComment, setNewComment] = useState('');
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({
-    title: '', department_id: '', event_id: '', description: '', briefing: '',
+    title: '', sector_id: '', event_id: '', description: '', briefing: '',
     format: '', channel: '', due_date: '', priority: 'medium' as TaskPriority,
   });
 
@@ -73,16 +73,16 @@ export function MarketingPage() {
     const { data, error } = await supabase
       .from('marketing_requests')
       .select(
-        '*, requester:profiles!marketing_requests_requester_id_fkey(id, full_name, avatar_url), assignee:profiles!marketing_requests_assignee_id_fkey(id, full_name, avatar_url), event:events(id, name), department:departments(id, name)',
+        '*, requester:profiles!marketing_requests_requester_id_fkey(id, full_name, avatar_url), assignee:profiles!marketing_requests_assignee_id_fkey(id, full_name, avatar_url), event:events(id, name), sector:sectors(id, name)',
       )
       .order('created_at', { ascending: false });
     if (error) throw new Error(error.message);
     return (data ?? []) as MarketingRequest[];
   });
 
-  const departments = useQuery<Department[]>(async () => {
-    const { data } = await supabase.from('departments').select('*').order('name');
-    return (data ?? []) as Department[];
+  const departments = useQuery<Sector[]>(async () => {
+    const { data } = await supabase.from('sectors').select('*').order('name');
+    return (data ?? []) as Sector[];
   });
 
   const events = useQuery<Pick<Event, 'id' | 'name'>[]>(async () => {
@@ -124,7 +124,7 @@ export function MarketingPage() {
     const { error } = await supabase.from('marketing_requests').insert({
       title: form.title.trim(),
       requester_id: profile?.id ?? null,
-      department_id: form.department_id || null,
+      sector_id: form.sector_id || null,
       event_id: form.event_id || null,
       description: form.description.trim() || null,
       briefing: form.briefing.trim() || null,
@@ -146,7 +146,7 @@ export function MarketingPage() {
       summary: `Criou o pedido de arte "${form.title.trim()}"`,
     });
     setCreateOpen(false);
-    setForm({ title: '', department_id: '', event_id: '', description: '', briefing: '', format: '', channel: '', due_date: '', priority: 'medium' });
+    setForm({ title: '', sector_id: '', event_id: '', description: '', briefing: '', format: '', channel: '', due_date: '', priority: 'medium' });
     void requests.refetch();
   };
 
@@ -245,7 +245,7 @@ export function MarketingPage() {
         <EmptyState
           icon={<Megaphone size={24} />}
           title="Nenhuma solicitação de marketing"
-          description="Peça artes, posts e materiais de divulgação para a diretoria de Marketing."
+          description="Peça artes, posts e materiais de divulgação para o setor de Marketing."
           actionLabel="Criar solicitação"
           onAction={() => setCreateOpen(true)}
         />
@@ -300,7 +300,7 @@ export function MarketingPage() {
                   <span className="min-w-0">
                     <span className="block truncate text-sm font-medium">{r.title}</span>
                     <span className="text-xs text-[var(--color-text-muted)]">
-                      {r.requester?.full_name ?? '—'} · {r.department?.name ?? 'Sem diretoria'} · prazo {formatDate(r.due_date)}
+                      {r.requester?.full_name ?? '—'} · {r.sector?.name ?? 'Sem setor'} · prazo {formatDate(r.due_date)}
                     </span>
                   </span>
                   <Badge tone={marketingStatusTones[r.status]}>{marketingStatusLabels[r.status]}</Badge>
@@ -372,11 +372,11 @@ export function MarketingPage() {
             <Input label="Título" required value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} />
           </div>
           <Select
-            label="Diretoria solicitante"
+            label="Setor solicitante"
             options={(departments.data ?? []).map((d) => ({ value: d.id, label: d.name }))}
             placeholder="Selecione…"
-            value={form.department_id}
-            onChange={(e) => setForm({ ...form, department_id: e.target.value })}
+            value={form.sector_id}
+            onChange={(e) => setForm({ ...form, sector_id: e.target.value })}
           />
           <Select
             label="Evento relacionado"
@@ -517,8 +517,8 @@ export function MarketingPage() {
                   <dd>{selected.requester?.full_name ?? '—'}</dd>
                 </div>
                 <div className="flex justify-between">
-                  <dt className="text-[var(--color-text-muted)]">Diretoria</dt>
-                  <dd>{selected.department?.name ?? '—'}</dd>
+                  <dt className="text-[var(--color-text-muted)]">Setor</dt>
+                  <dd>{selected.sector?.name ?? '—'}</dd>
                 </div>
                 <div className="flex justify-between">
                   <dt className="text-[var(--color-text-muted)]">Evento</dt>

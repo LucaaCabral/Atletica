@@ -1,12 +1,14 @@
-export type UserRole =
-  | 'admin'
-  | 'director'
-  | 'member'
-  | 'treasury'
-  | 'marketing'
-  | 'sports'
-  | 'coach'
-  | 'viewer';
+export type UserRole = 'presidente' | 'vice' | 'diretor' | 'assessor';
+
+export interface Management {
+  id: string;
+  name: string;
+  year: number;
+  start_date: string | null;
+  end_date: string | null;
+  is_current: boolean;
+  created_at: string;
+}
 
 export type TaskStatus = 'backlog' | 'todo' | 'in_progress' | 'in_review' | 'done' | 'cancelled';
 export type TaskPriority = 'low' | 'medium' | 'high' | 'urgent';
@@ -55,33 +57,76 @@ export interface Profile {
   phone: string | null;
   avatar_url: string | null;
   role: UserRole;
-  department_id: string | null;
+  sector_id: string | null;
   position_title: string | null;
   theme_preference: ThemePreference;
   is_active: boolean;
   created_at: string;
   updated_at: string;
-  department?: Department | null;
+  sector?: Sector | null;
 }
 
 export interface AuthorizedEmail {
   id: string;
   email: string;
   role: UserRole;
-  department_id: string | null;
+  sector_id: string | null;
   invited_by: string | null;
   used_at: string | null;
   created_at: string;
 }
 
-export interface Department {
+export type SectorType = 'generic' | 'esportes' | 'marketing' | 'patrocinio' | 'socios' | 'financeiro';
+export type SectorTab =
+  | 'dashboard'
+  | 'kanban'
+  | 'calendario'
+  | 'equipe'
+  | 'metas'
+  | 'eventos'
+  | 'financeiro'
+  | 'modulo'
+  | 'documentos'
+  | 'configuracoes';
+export type SectorGoalStatus = 'not_started' | 'in_progress' | 'achieved' | 'missed';
+
+export interface Sector {
   id: string;
+  management_id: string | null;
   name: string;
   description: string | null;
+  sector_type: SectorType;
+  tabs_order: SectorTab[];
+  icon: string | null;
+  color: string | null;
   responsible_id: string | null;
   is_active: boolean;
   created_at: string;
   updated_at: string;
+}
+
+export interface SectorMember {
+  sector_id: string;
+  profile_id: string;
+  role_in_sector: 'diretor' | 'assessor';
+  created_at: string;
+  profile?: Pick<Profile, 'id' | 'full_name' | 'avatar_url' | 'role'> | null;
+}
+
+export interface SectorGoal {
+  id: string;
+  sector_id: string;
+  title: string;
+  description: string | null;
+  target_value: number | null;
+  current_value: number;
+  unit: string | null;
+  due_date: string | null;
+  status: SectorGoalStatus;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+  sector?: Pick<Sector, 'id' | 'name'> | null;
 }
 
 export interface Position {
@@ -102,7 +147,7 @@ export interface Member {
   phone: string | null;
   photo_url: string | null;
   position_id: string | null;
-  department_id: string | null;
+  sector_id: string | null;
   joined_at: string | null;
   left_at: string | null;
   status: 'active' | 'inactive';
@@ -112,15 +157,17 @@ export interface Member {
   created_by: string | null;
   created_at: string;
   updated_at: string;
-  department?: Department | null;
+  sector?: Sector | null;
   position?: Position | null;
 }
+
+export type TaskRecurrenceType = 'daily' | 'weekly' | 'monthly' | 'custom';
 
 export interface Task {
   id: string;
   title: string;
   description: string | null;
-  department_id: string | null;
+  sector_id: string | null;
   event_id: string | null;
   priority: TaskPriority;
   status: TaskStatus;
@@ -129,12 +176,15 @@ export interface Task {
   labels: string[];
   is_archived: boolean;
   completed_at: string | null;
+  recurrence_type: TaskRecurrenceType | null;
+  recurrence_interval_days: number | null;
   created_by: string | null;
   created_at: string;
   updated_at: string;
-  department?: Department | null;
+  sector?: Sector | null;
   event?: Pick<Event, 'id' | 'name'> | null;
   assignees?: TaskAssignee[];
+  favorites?: TaskFavorite[];
 }
 
 export interface TaskAssignee {
@@ -142,6 +192,12 @@ export interface TaskAssignee {
   profile_id: string;
   created_at: string;
   profile?: Pick<Profile, 'id' | 'full_name' | 'avatar_url'> | null;
+}
+
+export interface TaskFavorite {
+  task_id: string;
+  profile_id: string;
+  created_at: string;
 }
 
 export interface TaskComment {
@@ -175,6 +231,8 @@ export interface TaskAttachment {
 
 export interface Event {
   id: string;
+  management_id: string | null;
+  sector_id: string | null;
   name: string;
   cover_url: string | null;
   description: string | null;
@@ -193,6 +251,7 @@ export interface Event {
   created_at: string;
   updated_at: string;
   responsible?: Pick<Profile, 'id' | 'full_name' | 'avatar_url'> | null;
+  sector?: Pick<Sector, 'id' | 'name'> | null;
 }
 
 export interface EventMember {
@@ -250,7 +309,7 @@ export interface FinancialTransaction {
   status: TransactionStatus;
   payment_method: string | null;
   event_id: string | null;
-  department_id: string | null;
+  sector_id: string | null;
   supplier_id: string | null;
   responsible_id: string | null;
   recurrence: string | null;
@@ -262,6 +321,7 @@ export interface FinancialTransaction {
   category?: FinancialCategory | null;
   event?: Pick<Event, 'id' | 'name'> | null;
   supplier?: Pick<Supplier, 'id' | 'name'> | null;
+  sector?: Pick<Sector, 'id' | 'name'> | null;
 }
 
 export interface Sport {
@@ -393,7 +453,7 @@ export interface MarketingRequest {
   id: string;
   title: string;
   requester_id: string | null;
-  department_id: string | null;
+  sector_id: string | null;
   event_id: string | null;
   description: string | null;
   briefing: string | null;
@@ -410,7 +470,7 @@ export interface MarketingRequest {
   requester?: Pick<Profile, 'id' | 'full_name' | 'avatar_url'> | null;
   assignee?: Pick<Profile, 'id' | 'full_name' | 'avatar_url'> | null;
   event?: Pick<Event, 'id' | 'name'> | null;
-  department?: Pick<Department, 'id' | 'name'> | null;
+  sector?: Pick<Sector, 'id' | 'name'> | null;
 }
 
 export interface MarketingComment {
@@ -498,7 +558,7 @@ export interface CalendarEntry {
   start_at: string;
   end_at: string | null;
   all_day: boolean;
-  department_id: string | null;
+  sector_id: string | null;
   responsible_id: string | null;
   related_type: string | null;
   related_id: string | null;

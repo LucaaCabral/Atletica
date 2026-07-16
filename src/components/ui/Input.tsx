@@ -9,7 +9,7 @@ import { Search } from 'lucide-react';
 import { cn } from '@/utils/cn';
 
 const baseField =
-  'w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-3 text-sm ' +
+  'w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] px-3 text-sm ' +
   'text-[var(--color-text)] placeholder:text-[var(--color-text-muted)] transition-colors ' +
   'focus:border-[var(--color-primary)] disabled:opacity-50 disabled:cursor-not-allowed';
 

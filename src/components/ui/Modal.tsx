@@ -11,7 +11,7 @@ interface ModalProps {
   title: string;
   children: ReactNode;
   footer?: ReactNode;
-  size?: 'sm' | 'md' | 'lg' | 'xl';
+  size?: 'sm' | 'md' | 'lg' | 'xl' | 'task';
 }
 
 const sizeClasses = {
@@ -19,6 +19,7 @@ const sizeClasses = {
   md: 'max-w-lg',
   lg: 'max-w-2xl',
   xl: 'max-w-4xl',
+  task: 'max-w-full sm:max-w-[85vw] lg:max-w-[60vw]',
 };
 
 export function Modal({ open, onClose, title, children, footer, size = 'md' }: ModalProps) {
@@ -57,7 +58,7 @@ export function Modal({ open, onClose, title, children, footer, size = 'md' }: M
         aria-label={title}
         className={cn(
           'animate-fade-in flex max-h-[92dvh] w-full flex-col overflow-hidden',
-          'rounded-t-2xl bg-[var(--color-surface)] shadow-[var(--shadow-popover)] sm:rounded-2xl',
+          'rounded-t-3xl bg-[var(--color-surface)] shadow-[var(--shadow-popover)] sm:rounded-3xl',
           sizeClasses[size],
         )}
       >
@@ -123,7 +124,7 @@ export function ConfirmModal({
     >
       <div className="flex items-start gap-3">
         {danger && (
-          <span className="mt-0.5 rounded-full bg-[var(--color-danger-soft)] p-2 text-[var(--color-danger)]">
+          <span className="mt-0.5 shrink-0 rounded-full bg-[var(--color-danger-soft)] p-2 text-[var(--color-danger)]">
             <AlertTriangle size={18} aria-hidden />
           </span>
         )}

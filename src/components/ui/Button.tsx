@@ -15,7 +15,7 @@ export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 
 const variantClasses: Record<Variant, string> = {
   primary:
-    'bg-[var(--color-primary)] text-[var(--color-primary-contrast)] hover:bg-[var(--color-primary-hover)] border border-transparent',
+    'bg-[var(--color-secondary)] text-[var(--color-secondary-contrast)] hover:bg-[var(--color-secondary-hover)] border border-transparent',
   secondary:
     'bg-[var(--color-surface-secondary)] text-[var(--color-text)] hover:bg-[var(--color-surface-hover)] border border-transparent',
   outline:
@@ -39,7 +39,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
       ref={ref}
       disabled={disabled || loading}
       className={cn(
-        'inline-flex items-center justify-center rounded-lg font-medium transition-colors',
+        'inline-flex items-center justify-center rounded-xl font-medium transition-colors',
         'disabled:opacity-50 disabled:cursor-not-allowed select-none whitespace-nowrap',
         variantClasses[variant],
         sizeClasses[size],
@@ -70,7 +70,7 @@ export const IconButton = forwardRef<HTMLButtonElement, IconButtonProps>(functio
       aria-label={label}
       title={label}
       className={cn(
-        'inline-flex items-center justify-center rounded-lg transition-colors',
+        'inline-flex items-center justify-center rounded-xl transition-colors',
         'disabled:opacity-50 disabled:cursor-not-allowed',
         variantClasses[variant],
         sizes[size],

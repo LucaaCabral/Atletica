@@ -2,6 +2,7 @@ import { BrowserRouter } from 'react-router-dom';
 import { ThemeProvider } from '@/contexts/ThemeContext';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { SettingsProvider } from '@/contexts/SettingsContext';
+import { ManagementProvider } from '@/contexts/ManagementContext';
 import { ToastProvider } from '@/contexts/ToastContext';
 import { ErrorBoundary } from '@/components/feedback/ErrorBoundary';
 import { ToastViewport } from '@/components/feedback/ToastViewport';
@@ -13,12 +14,14 @@ export function App() {
       <ThemeProvider>
         <AuthProvider>
           <SettingsProvider>
-            <ToastProvider>
-              <BrowserRouter>
-                <AppRoutes />
-                <ToastViewport />
-              </BrowserRouter>
-            </ToastProvider>
+            <ManagementProvider>
+              <ToastProvider>
+                <BrowserRouter>
+                  <AppRoutes />
+                  <ToastViewport />
+                </BrowserRouter>
+              </ToastProvider>
+            </ManagementProvider>
           </SettingsProvider>
         </AuthProvider>
       </ThemeProvider>

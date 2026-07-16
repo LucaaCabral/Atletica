@@ -23,7 +23,7 @@ export function Skeleton({ className }: { className?: string }) {
   return (
     <div
       aria-hidden
-      className={cn('animate-shimmer rounded-lg bg-[var(--color-surface-secondary)]', className)}
+      className={cn('animate-shimmer rounded-xl bg-[var(--color-surface-secondary)]', className)}
     />
   );
 }

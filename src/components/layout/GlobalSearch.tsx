@@ -92,7 +92,7 @@ export function GlobalSearch({ open, onClose }: { open: boolean; onClose: () => 
           title: m.full_name as string,
           subtitle: (m.email as string) ?? 'Membro',
           kind: 'member' as const,
-          to: `/diretoria/${m.id}`,
+          to: `/membros/${m.id}`,
         })),
         ...(athletes.data ?? []).map((a) => ({
           id: a.id as string,

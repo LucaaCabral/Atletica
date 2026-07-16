@@ -25,7 +25,7 @@ import { useDebounce } from '@/hooks/useDebounce';
 import { logActivity } from '@/services/activityLog';
 import { uploadFile, downloadFile } from '@/services/storage';
 import type {
-  Department,
+  Sector,
   Event,
   FinancialCategory,
   FinancialTransaction,
@@ -58,7 +58,7 @@ interface TransactionForm {
   status: TransactionStatus;
   payment_method: string;
   event_id: string;
-  department_id: string;
+  sector_id: string;
   supplier_id: string;
   recurrence: string;
   notes: string;
@@ -75,13 +75,13 @@ const emptyTransaction: TransactionForm = {
   status: 'pending',
   payment_method: '',
   event_id: '',
-  department_id: '',
+  sector_id: '',
   supplier_id: '',
   recurrence: '',
   notes: '',
 };
 
-const PIE_COLORS = ['#A31621', '#F2B705', '#2563EB', '#16A34A', '#9333EA', '#EA580C', '#0891B2', '#6B7280'];
+const PIE_COLORS = ['#2C2E43', '#FFC100', '#2563EB', '#16A34A', '#9333EA', '#EA580C', '#0891B2', '#6B7280'];
 
 export function FinancePage() {
   const { profile, can } = useAuth();
@@ -122,9 +122,9 @@ export function FinancePage() {
     return (data ?? []) as Pick<Event, 'id' | 'name'>[];
   });
 
-  const departments = useQuery<Department[]>(async () => {
-    const { data } = await supabase.from('departments').select('*').order('name');
-    return (data ?? []) as Department[];
+  const departments = useQuery<Sector[]>(async () => {
+    const { data } = await supabase.from('sectors').select('*').order('name');
+    return (data ?? []) as Sector[];
   });
 
   const transactions = useQuery<FinancialTransaction[]>(async () => {
@@ -203,7 +203,7 @@ export function FinancePage() {
       status: t.status,
       payment_method: t.payment_method ?? '',
       event_id: t.event_id ?? '',
-      department_id: t.department_id ?? '',
+      sector_id: t.sector_id ?? '',
       supplier_id: t.supplier_id ?? '',
       recurrence: t.recurrence ?? '',
       notes: t.notes ?? '',
@@ -243,7 +243,7 @@ export function FinancePage() {
       status: form.status,
       payment_method: form.payment_method.trim() || null,
       event_id: form.event_id || null,
-      department_id: form.department_id || null,
+      sector_id: form.sector_id || null,
       supplier_id: form.supplier_id || null,
       recurrence: form.recurrence.trim() || null,
       notes: form.notes.trim() || null,
@@ -754,11 +754,11 @@ export function FinancePage() {
             onChange={(e) => setForm({ ...form, event_id: e.target.value })}
           />
           <Select
-            label="Diretoria"
+            label="Setor"
             options={(departments.data ?? []).map((d) => ({ value: d.id, label: d.name }))}
-            placeholder="Nenhuma"
-            value={form.department_id}
-            onChange={(e) => setForm({ ...form, department_id: e.target.value })}
+            placeholder="Nenhum"
+            value={form.sector_id}
+            onChange={(e) => setForm({ ...form, sector_id: e.target.value })}
           />
           <Select
             label="Fornecedor"

@@ -1,27 +1,32 @@
 /* ============================================================
-   IDENTIDADE VISUAL — Gestão Atlética
-   Paleta provisória (nenhum arquivo de marca foi anexado):
-   vermelho bordô (mascote Touro) + dourado. Edite aqui para
-   aplicar a identidade oficial em todo o sistema.
+   IDENTIDADE VISUAL — Gestão Atlética (Atlética Inatel)
+   Azul institucional (#2C2E43) domina a interface: navegação,
+   texto de destaque, superfícies estruturais.
+   Amarelo institucional (#FFC100) é reservado a ações principais,
+   destaques, gráficos-chave, progresso e countdown — nunca
+   dominante. Bordas bem arredondadas (estilo Notion/Linear).
    ============================================================ */
 
 :root {
-  --color-primary: #a31621;
-  --color-primary-hover: #871220;
-  --color-primary-soft: rgba(163, 22, 33, 0.1);
+  --color-primary: #2c2e43;
+  --color-primary-hover: #3d3f5c;
+  --color-primary-soft: rgba(44, 46, 67, 0.08);
   --color-primary-contrast: #ffffff;
-  --color-secondary: #f2b705;
-  --color-secondary-hover: #d9a504;
 
-  --color-background: #f5f6f8;
+  --color-secondary: #ffc100;
+  --color-secondary-hover: #e6ae00;
+  --color-secondary-soft: rgba(255, 193, 0, 0.16);
+  --color-secondary-contrast: #1f2033;
+
+  --color-background: #f6f6f9;
   --color-surface: #ffffff;
-  --color-surface-secondary: #eef0f3;
-  --color-surface-hover: #f8f9fa;
-  --color-text: #16181d;
-  --color-text-secondary: #5b616e;
-  --color-text-muted: #8b919c;
-  --color-border: #e2e4e9;
-  --color-border-strong: #c9cdd4;
+  --color-surface-secondary: #eef0f4;
+  --color-surface-hover: #f8f9fb;
+  --color-text: #1c1d2b;
+  --color-text-secondary: #5a5c72;
+  --color-text-muted: #8b8da3;
+  --color-border: #e4e5ec;
+  --color-border-strong: #cbccd9;
 
   --color-success: #16a34a;
   --color-success-soft: rgba(22, 163, 74, 0.12);
@@ -32,30 +37,38 @@
   --color-info: #2563eb;
   --color-info-soft: rgba(37, 99, 235, 0.12);
 
-  --shadow-card: 0 1px 3px rgba(16, 18, 22, 0.07), 0 1px 2px rgba(16, 18, 22, 0.05);
-  --shadow-popover: 0 8px 30px rgba(16, 18, 22, 0.16);
-  --radius: 0.625rem;
+  --shadow-card: 0 1px 3px rgba(28, 29, 43, 0.07), 0 1px 2px rgba(28, 29, 43, 0.05);
+  --shadow-popover: 0 8px 30px rgba(28, 29, 43, 0.16);
+
+  --radius-sm: 0.5rem;
+  --radius-md: 0.75rem;
+  --radius-lg: 1rem;
+  --radius-xl: 1.5rem;
+  --radius: var(--radius-md);
 
   color-scheme: light;
 }
 
 [data-theme='dark'] {
-  --color-primary: #d33f49;
-  --color-primary-hover: #e05560;
-  --color-primary-soft: rgba(211, 63, 73, 0.16);
+  --color-primary: #7679a3;
+  --color-primary-hover: #8b8ebb;
+  --color-primary-soft: rgba(118, 121, 163, 0.2);
   --color-primary-contrast: #ffffff;
-  --color-secondary: #f2b705;
-  --color-secondary-hover: #ffcb2e;
 
-  --color-background: #0e1013;
-  --color-surface: #16181d;
-  --color-surface-secondary: #1e2126;
-  --color-surface-hover: #22252b;
-  --color-text: #f4f5f6;
-  --color-text-secondary: #9aa1ac;
-  --color-text-muted: #6c727d;
-  --color-border: #262a31;
-  --color-border-strong: #363b44;
+  --color-secondary: #ffc100;
+  --color-secondary-hover: #ffcf33;
+  --color-secondary-soft: rgba(255, 193, 0, 0.18);
+  --color-secondary-contrast: #1f2033;
+
+  --color-background: #14151f;
+  --color-surface: #1b1c29;
+  --color-surface-secondary: #232433;
+  --color-surface-hover: #292a3b;
+  --color-text: #f2f2f7;
+  --color-text-secondary: #a3a5bd;
+  --color-text-muted: #6f7189;
+  --color-border: #2b2c3e;
+  --color-border-strong: #3c3e56;
 
   --color-success: #22c55e;
   --color-success-soft: rgba(34, 197, 94, 0.16);

@@ -43,7 +43,7 @@ export function Dropdown({ trigger, items, align = 'right' }: DropdownProps) {
         <div
           role="menu"
           className={cn(
-            'animate-fade-in absolute z-40 mt-1 min-w-44 overflow-hidden rounded-xl border',
+            'animate-fade-in absolute z-40 mt-1 min-w-44 overflow-hidden rounded-2xl border',
             'border-[var(--color-border)] bg-[var(--color-surface)] py-1 shadow-[var(--shadow-popover)]',
             align === 'right' ? 'right-0' : 'left-0',
           )}

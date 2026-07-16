@@ -136,7 +136,7 @@ export function ProfilePage() {
               <p className="text-sm text-[var(--color-text-secondary)]">{profile.email}</p>
               <p className="mt-1 text-xs text-[var(--color-text-muted)]">
                 {roleLabels[profile.role]}
-                {profile.department ? ` · ${profile.department.name}` : ''}
+                {profile.sector ? ` · ${profile.sector.name}` : ''}
               </p>
             </div>
           </div>

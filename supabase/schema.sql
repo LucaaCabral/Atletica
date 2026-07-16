@@ -10,9 +10,12 @@ create extension if not exists "pgcrypto";
 -- ENUMS
 -- ============================================================
 
-create type public.user_role as enum (
-  'admin', 'director', 'member', 'treasury', 'marketing', 'sports', 'coach', 'viewer'
-);
+-- 4 papéis do ERP: presidente/vice têm controle administrativo total,
+-- diretor gerencia os setores em que atua (ver sector_members, fase Setores),
+-- assessor executa tarefas. Por transparência, leitura é aberta a todos
+-- os papéis autenticados na maior parte das tabelas — o papel controla
+-- principalmente escrita/edição, não visualização.
+create type public.user_role as enum ('presidente', 'vice', 'diretor', 'assessor');
 
 create type public.task_status as enum (
   'backlog', 'todo', 'in_progress', 'in_review', 'done', 'cancelled'
@@ -52,12 +55,66 @@ create type public.calendar_category as enum (
 -- TABELAS
 -- ============================================================
 
-create table public.departments (
+-- Gestões: o app opera por temporada ("Gestão 2026", "Gestão 2027"...).
+-- Todo histórico permanece salvo; a troca de gestão corrente só acontece
+-- em Configurações (ver app_settings key 'current_management_id').
+create table public.managements (
   id uuid primary key default gen_random_uuid(),
   name text not null,
+  year int not null,
+  start_date date,
+  end_date date,
+  is_current boolean not null default false,
+  created_at timestamptz not null default now()
+);
+
+-- Garante no máximo uma gestão marcada como corrente.
+create unique index managements_single_current on public.managements (is_current) where is_current;
+
+-- Setores: cada um é um mini-ERP configurável. sector_type habilita abas
+-- especializadas além das genéricas (Kanban/Calendário/Eventos/Financeiro/
+-- Equipe/Metas/Documentos), reaproveitando os módulos de domínio existentes
+-- (esportes, marketing, patrocínio, sócios) em vez de recriá-los de forma
+-- totalmente genérica.
+create table public.sectors (
+  id uuid primary key default gen_random_uuid(),
+  management_id uuid references public.managements (id) on delete set null,
+  name text not null,
   description text,
+  sector_type text not null default 'generic'
+    check (sector_type in ('generic', 'esportes', 'marketing', 'patrocinio', 'socios', 'financeiro')),
+  tabs_order jsonb not null default
+    '["dashboard", "kanban", "calendario", "equipe", "metas", "eventos", "financeiro", "documentos", "configuracoes"]',
+  icon text,
+  color text,
   responsible_id uuid,
   is_active boolean not null default true,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+-- Diretores/assessores por setor. Um diretor pode liderar vários setores
+-- (sem limite de linhas por profile_id).
+create table public.sector_members (
+  sector_id uuid not null references public.sectors (id) on delete cascade,
+  profile_id uuid not null references public.profiles (id) on delete cascade,
+  role_in_sector text not null default 'assessor' check (role_in_sector in ('diretor', 'assessor')),
+  created_at timestamptz not null default now(),
+  primary key (sector_id, profile_id)
+);
+
+-- Metas do setor.
+create table public.sector_goals (
+  id uuid primary key default gen_random_uuid(),
+  sector_id uuid not null references public.sectors (id) on delete cascade,
+  title text not null,
+  description text,
+  target_value numeric(12, 2),
+  current_value numeric(12, 2) not null default 0,
+  unit text,
+  due_date date,
+  status text not null default 'in_progress' check (status in ('not_started', 'in_progress', 'achieved', 'missed')),
+  created_by uuid references public.profiles (id) on delete set null,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
@@ -78,8 +135,8 @@ create table public.profiles (
   nickname text,
   phone text,
   avatar_url text,
-  role public.user_role not null default 'member',
-  department_id uuid references public.departments (id) on delete set null,
+  role public.user_role not null default 'assessor',
+  sector_id uuid references public.sectors (id) on delete set null,
   position_title text,
   theme_preference text not null default 'system' check (theme_preference in ('light', 'dark', 'system')),
   is_active boolean not null default true,
@@ -87,15 +144,15 @@ create table public.profiles (
   updated_at timestamptz not null default now()
 );
 
-alter table public.departments
-  add constraint departments_responsible_fk
+alter table public.sectors
+  add constraint sectors_responsible_fk
   foreign key (responsible_id) references public.profiles (id) on delete set null;
 
 create table public.authorized_emails (
   id uuid primary key default gen_random_uuid(),
   email text not null unique,
-  role public.user_role not null default 'member',
-  department_id uuid references public.departments (id) on delete set null,
+  role public.user_role not null default 'assessor',
+  sector_id uuid references public.sectors (id) on delete set null,
   invited_by uuid references public.profiles (id) on delete set null,
   used_at timestamptz,
   created_at timestamptz not null default now()
@@ -136,7 +193,7 @@ create table public.members (
   phone text,
   photo_url text,
   position_id uuid references public.positions (id) on delete set null,
-  department_id uuid references public.departments (id) on delete set null,
+  sector_id uuid references public.sectors (id) on delete set null,
   joined_at date,
   left_at date,
   status text not null default 'active' check (status in ('active', 'inactive')),
@@ -150,6 +207,8 @@ create table public.members (
 
 create table public.events (
   id uuid primary key default gen_random_uuid(),
+  management_id uuid references public.managements (id) on delete set null,
+  sector_id uuid references public.sectors (id) on delete set null,
   name text not null,
   cover_url text,
   description text,
@@ -190,9 +249,10 @@ create table public.event_timeline (
 
 create table public.tasks (
   id uuid primary key default gen_random_uuid(),
+  management_id uuid references public.managements (id) on delete set null,
   title text not null,
   description text,
-  department_id uuid references public.departments (id) on delete set null,
+  sector_id uuid references public.sectors (id) on delete set null,
   event_id uuid references public.events (id) on delete set null,
   priority public.task_priority not null default 'medium',
   status public.task_status not null default 'todo',
@@ -201,12 +261,24 @@ create table public.tasks (
   labels text[] not null default '{}',
   is_archived boolean not null default false,
   completed_at timestamptz,
+  -- Recorrência: ao concluir uma tarefa recorrente, o app gera a próxima
+  -- ocorrência (ver src/services/recurrence.ts) — não há job agendado.
+  recurrence_type text check (recurrence_type in ('daily', 'weekly', 'monthly', 'custom')),
+  recurrence_interval_days int,
   created_by uuid references public.profiles (id) on delete set null,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
 
 create table public.task_assignees (
+  task_id uuid not null references public.tasks (id) on delete cascade,
+  profile_id uuid not null references public.profiles (id) on delete cascade,
+  created_at timestamptz not null default now(),
+  primary key (task_id, profile_id)
+);
+
+-- Tarefas fixadas/favoritas por usuário.
+create table public.task_favorites (
   task_id uuid not null references public.tasks (id) on delete cascade,
   profile_id uuid not null references public.profiles (id) on delete cascade,
   created_at timestamptz not null default now(),
@@ -267,6 +339,7 @@ create table public.suppliers (
 
 create table public.financial_transactions (
   id uuid primary key default gen_random_uuid(),
+  management_id uuid references public.managements (id) on delete set null,
   type public.transaction_type not null,
   description text not null,
   amount numeric(12, 2) not null check (amount >= 0),
@@ -277,7 +350,7 @@ create table public.financial_transactions (
   status public.transaction_status not null default 'pending',
   payment_method text,
   event_id uuid references public.events (id) on delete set null,
-  department_id uuid references public.departments (id) on delete set null,
+  sector_id uuid references public.sectors (id) on delete set null,
   supplier_id uuid references public.suppliers (id) on delete set null,
   responsible_id uuid references public.profiles (id) on delete set null,
   recurrence text,
@@ -397,6 +470,8 @@ create table public.games (
 
 create table public.sponsors (
   id uuid primary key default gen_random_uuid(),
+  management_id uuid references public.managements (id) on delete set null,
+  sector_id uuid references public.sectors (id) on delete set null,
   company_name text not null,
   logo_url text,
   contact_name text,
@@ -428,9 +503,10 @@ create table public.sponsorships (
 
 create table public.marketing_requests (
   id uuid primary key default gen_random_uuid(),
+  management_id uuid references public.managements (id) on delete set null,
   title text not null,
   requester_id uuid references public.profiles (id) on delete set null,
-  department_id uuid references public.departments (id) on delete set null,
+  sector_id uuid references public.sectors (id) on delete set null,
   event_id uuid references public.events (id) on delete set null,
   description text,
   briefing text,
@@ -475,6 +551,8 @@ create table public.marketing_files (
 
 create table public.members_club (
   id uuid primary key default gen_random_uuid(),
+  management_id uuid references public.managements (id) on delete set null,
+  sector_id uuid references public.sectors (id) on delete set null,
   full_name text not null,
   photo_url text,
   registration text,
@@ -532,13 +610,14 @@ create table public.documents (
 
 create table public.calendar_entries (
   id uuid primary key default gen_random_uuid(),
+  management_id uuid references public.managements (id) on delete set null,
   title text not null,
   description text,
   category public.calendar_category not null default 'other',
   start_at timestamptz not null,
   end_at timestamptz,
   all_day boolean not null default false,
-  department_id uuid references public.departments (id) on delete set null,
+  sector_id uuid references public.sectors (id) on delete set null,
   responsible_id uuid references public.profiles (id) on delete set null,
   related_type text,
   related_id uuid,
@@ -582,16 +661,18 @@ create table public.app_settings (
 -- ÍNDICES
 -- ============================================================
 
-create index idx_profiles_department on public.profiles (department_id);
-create index idx_members_department on public.members (department_id);
+create index idx_profiles_sector on public.profiles (sector_id);
+create index idx_members_sector on public.members (sector_id);
 create index idx_members_status on public.members (status);
 create index idx_tasks_status on public.tasks (status);
 create index idx_tasks_due_date on public.tasks (due_date);
-create index idx_tasks_department on public.tasks (department_id);
+create index idx_tasks_sector on public.tasks (sector_id);
 create index idx_tasks_event on public.tasks (event_id);
 create index idx_task_assignees_profile on public.task_assignees (profile_id);
 create index idx_task_comments_task on public.task_comments (task_id);
 create index idx_events_status on public.events (status);
+create index idx_events_sector on public.events (sector_id);
+create index idx_sector_goals_sector on public.sector_goals (sector_id);
 create index idx_events_start_date on public.events (start_date);
 create index idx_transactions_date on public.financial_transactions (date);
 create index idx_transactions_status on public.financial_transactions (status);
@@ -606,10 +687,21 @@ create index idx_documents_category on public.documents (category);
 create index idx_calendar_start on public.calendar_entries (start_at);
 create index idx_notifications_user on public.notifications (user_id, is_read);
 create index idx_activity_logs_created on public.activity_logs (created_at desc);
+create index idx_tasks_management on public.tasks (management_id);
+create index idx_events_management on public.events (management_id);
+create index idx_transactions_management on public.financial_transactions (management_id);
+create index idx_calendar_management on public.calendar_entries (management_id);
 
 -- ============================================================
 -- FUNÇÕES AUXILIARES
 -- ============================================================
+
+create or replace function public.current_management_id()
+returns uuid
+language sql stable security definer set search_path = public
+as $$
+  select id from public.managements where is_current limit 1;
+$$;
 
 create or replace function public.my_role()
 returns text
@@ -618,39 +710,60 @@ as $$
   select role::text from public.profiles where id = auth.uid();
 $$;
 
-create or replace function public.is_admin()
+-- Presidente/Vice = controle administrativo total (antigo "admin").
+create or replace function public.is_top()
 returns boolean
 language sql stable security definer set search_path = public
 as $$
-  select coalesce(public.my_role() = 'admin', false);
+  select coalesce(public.my_role() in ('presidente', 'vice'), false);
 $$;
 
+-- TODO (fase Setores): estender para permitir diretor de um setor do tipo
+-- financeiro/tesouraria, hoje restrito a presidente/vice.
 create or replace function public.has_finance_access()
 returns boolean
 language sql stable security definer set search_path = public
 as $$
-  select coalesce(public.my_role() in ('admin', 'treasury'), false);
+  select public.is_top();
 $$;
 
+-- Qualquer um dos 4 papéis pode criar/editar (não há mais papel viewer);
+-- exclusão continua restrita a diretor+ via is_diretor_or_top().
 create or replace function public.can_write()
 returns boolean
 language sql stable security definer set search_path = public
 as $$
-  select coalesce(public.my_role() is not null and public.my_role() <> 'viewer', false);
+  select coalesce(public.my_role() is not null, false);
 $$;
 
-create or replace function public.is_director_or_admin()
+-- Presidente/Vice/Diretor (antigo "director_or_admin").
+create or replace function public.is_diretor_or_top()
 returns boolean
 language sql stable security definer set search_path = public
 as $$
-  select coalesce(public.my_role() in ('admin', 'director'), false);
+  select coalesce(public.my_role() in ('presidente', 'vice', 'diretor'), false);
+$$;
+
+-- Diretor de um setor específico (além de presidente/vice, que administram tudo).
+create or replace function public.is_sector_director(p_sector_id uuid)
+returns boolean
+language sql stable security definer set search_path = public
+as $$
+  select public.is_top() or exists (
+    select 1 from public.sector_members
+    where sector_id = p_sector_id and profile_id = auth.uid() and role_in_sector = 'diretor'
+  );
 $$;
 
 create or replace function public.can_view_emergency_contacts()
 returns boolean
 language sql stable security definer set search_path = public
 as $$
-  select coalesce(public.my_role() in ('admin', 'sports', 'coach'), false);
+  select public.is_diretor_or_top() or exists (
+    select 1 from public.sector_members sm
+    join public.sectors s on s.id = sm.sector_id
+    where sm.profile_id = auth.uid() and s.sector_type = 'esportes'
+  );
 $$;
 
 -- ============================================================
@@ -683,7 +796,7 @@ begin
 end $$;
 
 -- Criação de perfil no signup: só permite e-mails convidados.
--- O primeiro usuário do sistema vira administrador automaticamente.
+-- O primeiro usuário do sistema vira presidente automaticamente (bootstrap).
 create or replace function public.handle_new_user()
 returns trigger
 language plpgsql security definer set search_path = public
@@ -701,13 +814,13 @@ begin
 
   if profile_count = 0 then
     insert into public.profiles (id, email, full_name, role)
-    values (new.id, new.email, coalesce(new.raw_user_meta_data ->> 'full_name', new.email), 'admin');
+    values (new.id, new.email, coalesce(new.raw_user_meta_data ->> 'full_name', new.email), 'presidente');
   elsif invite.id is not null then
-    insert into public.profiles (id, email, full_name, role, department_id)
+    insert into public.profiles (id, email, full_name, role, sector_id)
     values (
       new.id, new.email,
       coalesce(new.raw_user_meta_data ->> 'full_name', new.email),
-      invite.role, invite.department_id
+      invite.role, invite.sector_id
     );
     update public.authorized_emails set used_at = now() where id = invite.id;
   else
@@ -789,42 +902,48 @@ begin
   end loop;
 end $$;
 
+-- ---------- gestões (leitura geral, escrita presidente/vice) ----------
+create policy "managements_select" on public.managements
+  for select to authenticated using (true);
+create policy "managements_write" on public.managements
+  for all to authenticated using (public.is_top()) with check (public.is_top());
+
 -- ---------- profiles ----------
 create policy "profiles_select" on public.profiles
   for select to authenticated using (true);
 create policy "profiles_update_own_or_admin" on public.profiles
   for update to authenticated
-  using (id = auth.uid() or public.is_admin())
-  with check (id = auth.uid() or public.is_admin());
+  using (id = auth.uid() or public.is_top())
+  with check (id = auth.uid() or public.is_top());
 create policy "profiles_delete_admin" on public.profiles
-  for delete to authenticated using (public.is_admin());
+  for delete to authenticated using (public.is_top());
 
--- ---------- authorized_emails (somente admin) ----------
+-- ---------- authorized_emails (somente presidente/vice) ----------
 create policy "invites_admin_all" on public.authorized_emails
-  for all to authenticated using (public.is_admin()) with check (public.is_admin());
+  for all to authenticated using (public.is_top()) with check (public.is_top());
 
--- ---------- roles / permissions (leitura geral, escrita admin) ----------
+-- ---------- roles / permissions (leitura geral, escrita presidente/vice) ----------
 create policy "roles_select" on public.roles for select to authenticated using (true);
 create policy "roles_admin_write" on public.roles
-  for all to authenticated using (public.is_admin()) with check (public.is_admin());
+  for all to authenticated using (public.is_top()) with check (public.is_top());
 create policy "permissions_select" on public.permissions for select to authenticated using (true);
 create policy "permissions_admin_write" on public.permissions
-  for all to authenticated using (public.is_admin()) with check (public.is_admin());
+  for all to authenticated using (public.is_top()) with check (public.is_top());
 create policy "role_permissions_select" on public.role_permissions for select to authenticated using (true);
 create policy "role_permissions_admin_write" on public.role_permissions
-  for all to authenticated using (public.is_admin()) with check (public.is_admin());
+  for all to authenticated using (public.is_top()) with check (public.is_top());
 create policy "user_roles_select" on public.user_roles for select to authenticated using (true);
 create policy "user_roles_admin_write" on public.user_roles
-  for all to authenticated using (public.is_admin()) with check (public.is_admin());
+  for all to authenticated using (public.is_top()) with check (public.is_top());
 
--- ---------- tabelas operacionais: leitura autenticada, escrita para não-viewers,
--- ---------- exclusão para admin/diretor ou autor ----------
+-- ---------- tabelas operacionais: leitura autenticada, escrita para qualquer papel,
+-- ---------- exclusão restrita a diretor+ (presidente/vice/diretor) ----------
 do $$
 declare
   t text;
 begin
   foreach t in array array[
-    'departments', 'positions', 'members', 'events', 'event_members', 'event_timeline',
+    'sectors', 'sector_members', 'sector_goals', 'positions', 'members', 'events', 'event_members', 'event_timeline',
     'tasks', 'task_assignees', 'task_comments', 'task_checklists', 'task_attachments',
     'sports', 'coaches', 'teams', 'athletes', 'team_athletes', 'trainings',
     'training_attendance', 'games', 'sponsors', 'sponsorships',
@@ -844,7 +963,7 @@ begin
     );
     execute format(
       'create policy "%s_delete" on public.%I for delete to authenticated
-       using (public.is_director_or_admin() or public.my_role() in (''treasury'', ''marketing'', ''sports''))', t, t
+       using (public.is_diretor_or_top())', t, t
     );
   end loop;
 end $$;
@@ -864,7 +983,7 @@ create policy "transactions_finance_all" on public.financial_transactions
   for all to authenticated using (public.has_finance_access()) with check (public.has_finance_access());
 
 create policy "membership_payments_select" on public.membership_payments
-  for select to authenticated using (public.has_finance_access() or public.is_director_or_admin());
+  for select to authenticated using (public.has_finance_access() or public.is_diretor_or_top());
 create policy "membership_payments_write" on public.membership_payments
   for insert to authenticated with check (public.has_finance_access());
 create policy "membership_payments_update" on public.membership_payments
@@ -880,6 +999,14 @@ create policy "emergency_write" on public.athlete_emergency_contacts
   using (public.can_view_emergency_contacts())
   with check (public.can_view_emergency_contacts());
 
+-- ---------- favoritos de tarefa (cada usuário só vê/gerencia os seus) ----------
+create policy "task_favorites_select_own" on public.task_favorites
+  for select to authenticated using (profile_id = auth.uid());
+create policy "task_favorites_insert_own" on public.task_favorites
+  for insert to authenticated with check (profile_id = auth.uid());
+create policy "task_favorites_delete_own" on public.task_favorites
+  for delete to authenticated using (profile_id = auth.uid());
+
 -- ---------- notificações (cada usuário vê apenas as suas) ----------
 create policy "notifications_select_own" on public.notifications
   for select to authenticated using (user_id = auth.uid());
@@ -892,7 +1019,7 @@ create policy "notifications_delete_own" on public.notifications
 
 -- ---------- auditoria ----------
 create policy "logs_select" on public.activity_logs
-  for select to authenticated using (public.is_director_or_admin());
+  for select to authenticated using (public.is_diretor_or_top());
 create policy "logs_insert_own" on public.activity_logs
   for insert to authenticated with check (user_id = auth.uid());
 
@@ -900,7 +1027,7 @@ create policy "logs_insert_own" on public.activity_logs
 create policy "settings_select" on public.app_settings
   for select to authenticated using (true);
 create policy "settings_admin_write" on public.app_settings
-  for all to authenticated using (public.is_admin()) with check (public.is_admin());
+  for all to authenticated using (public.is_top()) with check (public.is_top());
 
 -- ============================================================
 -- STORAGE — buckets e políticas
@@ -938,8 +1065,8 @@ create policy "storage_auth_insert" on storage.objects
 
 create policy "storage_auth_update" on storage.objects
   for update to authenticated
-  using (owner = auth.uid() or public.is_admin());
+  using (owner = auth.uid() or public.is_top());
 
 create policy "storage_auth_delete" on storage.objects
   for delete to authenticated
-  using (owner = auth.uid() or public.is_director_or_admin() or (bucket_id = 'financial-receipts' and public.has_finance_access()));
+  using (owner = auth.uid() or public.is_diretor_or_top() or (bucket_id = 'financial-receipts' and public.has_finance_access()));

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Copy, Archive, Trash2, Plus, Send, Paperclip, X, Download } from 'lucide-react';
+import { Copy, Archive, Trash2, Plus, Send, Paperclip, X, Download, Star } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/contexts/ToastContext';
@@ -7,7 +7,7 @@ import { useSettings } from '@/contexts/SettingsContext';
 import { logActivity } from '@/services/activityLog';
 import { uploadFile, deleteFile, downloadFile } from '@/services/storage';
 import type {
-  Department,
+  Sector,
   Event,
   Profile,
   Task,
@@ -15,23 +15,27 @@ import type {
   TaskChecklistItem,
   TaskComment,
   TaskPriority,
+  TaskRecurrenceType,
   TaskStatus,
 } from '@/types';
 import { Modal, ConfirmModal } from '@/components/ui/Modal';
+import { Badge } from '@/components/ui/Badge';
 import { Button, IconButton } from '@/components/ui/Button';
 import { Input, Select, Textarea, Checkbox } from '@/components/ui/Input';
 import { Avatar } from '@/components/ui/Avatar';
 import { ProgressBar } from '@/components/ui/Card';
-import { taskPriorityLabels, taskStatusLabels, taskStatusOrder } from '@/utils/labels';
-import { formatRelative, formatFileSize } from '@/utils/format';
+import { taskPriorityLabels, taskRecurrenceLabels, taskStatusLabels, taskStatusOrder } from '@/utils/labels';
+import { formatRelative, formatFileSize, isOverdue } from '@/utils/format';
+import { generateNextOccurrence } from '@/services/recurrence';
 import { cn } from '@/utils/cn';
 
 interface TaskModalProps {
   open: boolean;
   task: Task | null;
   defaultEventId?: string;
+  defaultSectorId?: string;
   profiles: Profile[];
-  departments: Department[];
+  departments: Sector[];
   events: Pick<Event, 'id' | 'name'>[];
   onClose: () => void;
   onSaved: () => void;
@@ -40,28 +44,42 @@ interface TaskModalProps {
 interface TaskForm {
   title: string;
   description: string;
-  department_id: string;
+  sector_id: string;
   event_id: string;
   priority: TaskPriority;
   status: TaskStatus;
   start_date: string;
   due_date: string;
   labels: string[];
+  recurrence_type: TaskRecurrenceType | '';
+  recurrence_interval_days: string;
 }
 
 const emptyForm: TaskForm = {
   title: '',
   description: '',
-  department_id: '',
+  sector_id: '',
   event_id: '',
   priority: 'medium',
   status: 'todo',
   start_date: '',
   due_date: '',
   labels: [],
+  recurrence_type: '',
+  recurrence_interval_days: '',
 };
 
-export function TaskModal({ open, task, defaultEventId, profiles, departments, events, onClose, onSaved }: TaskModalProps) {
+export function TaskModal({
+  open,
+  task,
+  defaultEventId,
+  defaultSectorId,
+  profiles,
+  departments,
+  events,
+  onClose,
+  onSaved,
+}: TaskModalProps) {
   const { profile, can } = useAuth();
   const toast = useToast();
   const { taskLabels } = useSettings();
@@ -77,6 +95,7 @@ export function TaskModal({ open, task, defaultEventId, profiles, departments, e
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [isFavorite, setIsFavorite] = useState(false);
 
   useEffect(() => {
     if (!open) return;
@@ -84,27 +103,39 @@ export function TaskModal({ open, task, defaultEventId, profiles, departments, e
       setForm({
         title: task.title,
         description: task.description ?? '',
-        department_id: task.department_id ?? '',
+        sector_id: task.sector_id ?? '',
         event_id: task.event_id ?? '',
         priority: task.priority,
         status: task.status,
         start_date: task.start_date ?? '',
         due_date: task.due_date ?? '',
         labels: task.labels ?? [],
+        recurrence_type: task.recurrence_type ?? '',
+        recurrence_interval_days: task.recurrence_interval_days?.toString() ?? '',
       });
       setAssignees((task.assignees ?? []).map((a) => a.profile_id));
       void loadSubResources(task.id);
     } else {
-      setForm({ ...emptyForm, event_id: defaultEventId ?? '' });
+      setForm({ ...emptyForm, event_id: defaultEventId ?? '', sector_id: defaultSectorId ?? '' });
       setAssignees([]);
       setChecklist([]);
       setComments([]);
       setAttachments([]);
+      setIsFavorite(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, task?.id]);
 
   const loadSubResources = async (taskId: string) => {
+    if (profile) {
+      const { data: fav } = await supabase
+        .from('task_favorites')
+        .select('task_id')
+        .eq('task_id', taskId)
+        .eq('profile_id', profile.id)
+        .maybeSingle();
+      setIsFavorite(Boolean(fav));
+    }
     const [cl, cm, at] = await Promise.all([
       supabase.from('task_checklists').select('*').eq('task_id', taskId).order('position'),
       supabase
@@ -149,7 +180,7 @@ export function TaskModal({ open, task, defaultEventId, profiles, departments, e
     const payload = {
       title: form.title.trim(),
       description: form.description.trim() || null,
-      department_id: form.department_id || null,
+      sector_id: form.sector_id || null,
       event_id: form.event_id || null,
       priority: form.priority,
       status: form.status,
@@ -157,8 +188,11 @@ export function TaskModal({ open, task, defaultEventId, profiles, departments, e
       due_date: form.due_date || null,
       labels: form.labels,
       completed_at: form.status === 'done' ? new Date().toISOString() : null,
+      recurrence_type: form.recurrence_type || null,
+      recurrence_interval_days: form.recurrence_type === 'custom' ? Number(form.recurrence_interval_days) || 7 : null,
     };
 
+    const becameDone = form.status === 'done' && task?.status !== 'done';
     let taskId = task?.id ?? null;
     if (task) {
       const { error } = await supabase.from('tasks').update(payload).eq('id', task.id);
@@ -194,6 +228,10 @@ export function TaskModal({ open, task, defaultEventId, profiles, departments, e
       }
     }
 
+    if (becameDone && payload.recurrence_type && task) {
+      void generateNextOccurrence({ ...task, ...payload });
+    }
+
     setSaving(false);
     toast.success(task ? 'Tarefa atualizada.' : 'Tarefa criada.');
     void logActivity({
@@ -212,7 +250,7 @@ export function TaskModal({ open, task, defaultEventId, profiles, departments, e
     const { error } = await supabase.from('tasks').insert({
       title: `${task.title} (cópia)`,
       description: task.description,
-      department_id: task.department_id,
+      sector_id: task.sector_id,
       event_id: task.event_id,
       priority: task.priority,
       status: 'todo',
@@ -333,26 +371,46 @@ export function TaskModal({ open, task, defaultEventId, profiles, departments, e
 
   const doneItems = checklist.filter((c) => c.is_done).length;
 
+  const toggleFavorite = async () => {
+    if (!task || !profile) return;
+    if (isFavorite) {
+      await supabase.from('task_favorites').delete().eq('task_id', task.id).eq('profile_id', profile.id);
+    } else {
+      await supabase.from('task_favorites').insert({ task_id: task.id, profile_id: profile.id });
+    }
+    setIsFavorite(!isFavorite);
+  };
+
   return (
     <>
       <Modal
         open={open}
         onClose={onClose}
         title={task ? 'Detalhes da tarefa' : 'Nova tarefa'}
-        size="xl"
+        size="task"
         footer={
           <>
-            {task && canManage && (
+            {task && (
               <div className="mr-auto flex gap-1">
-                <IconButton label="Duplicar tarefa" onClick={() => void duplicate()}>
-                  <Copy size={16} />
+                <IconButton
+                  label={isFavorite ? 'Remover dos favoritos' : 'Fixar como favorita'}
+                  onClick={() => void toggleFavorite()}
+                >
+                  <Star size={16} className={isFavorite ? 'fill-[var(--color-secondary)] text-[var(--color-secondary)]' : ''} />
                 </IconButton>
-                <IconButton label="Arquivar tarefa" onClick={() => void archive()}>
-                  <Archive size={16} />
-                </IconButton>
-                <IconButton label="Excluir tarefa" onClick={() => setConfirmDelete(true)}>
-                  <Trash2 size={16} className="text-[var(--color-danger)]" />
-                </IconButton>
+                {canManage && (
+                  <>
+                    <IconButton label="Duplicar tarefa" onClick={() => void duplicate()}>
+                      <Copy size={16} />
+                    </IconButton>
+                    <IconButton label="Arquivar tarefa" onClick={() => void archive()}>
+                      <Archive size={16} />
+                    </IconButton>
+                    <IconButton label="Excluir tarefa" onClick={() => setConfirmDelete(true)}>
+                      <Trash2 size={16} className="text-[var(--color-danger)]" />
+                    </IconButton>
+                  </>
+                )}
               </div>
             )}
             <Button variant="outline" onClick={onClose} disabled={saving}>
@@ -568,11 +626,11 @@ export function TaskModal({ open, task, defaultEventId, profiles, departments, e
               disabled={!canManage}
             />
             <Select
-              label="Diretoria"
+              label="Setor"
               options={departments.map((d) => ({ value: d.id, label: d.name }))}
               placeholder="Nenhuma"
-              value={form.department_id}
-              onChange={(e) => setForm({ ...form, department_id: e.target.value })}
+              value={form.sector_id}
+              onChange={(e) => setForm({ ...form, sector_id: e.target.value })}
               disabled={!canManage}
             />
             <Select
@@ -597,6 +655,27 @@ export function TaskModal({ open, task, defaultEventId, profiles, departments, e
               onChange={(e) => setForm({ ...form, due_date: e.target.value })}
               disabled={!canManage}
             />
+            {isOverdue(form.due_date) && !['done', 'cancelled'].includes(form.status) && (
+              <Badge tone="danger">Atrasada</Badge>
+            )}
+            <Select
+              label="Recorrência"
+              options={Object.entries(taskRecurrenceLabels).map(([value, label]) => ({ value, label }))}
+              placeholder="Não repete"
+              value={form.recurrence_type}
+              onChange={(e) => setForm({ ...form, recurrence_type: e.target.value as TaskRecurrenceType | '' })}
+              disabled={!canManage}
+            />
+            {form.recurrence_type === 'custom' && (
+              <Input
+                label="Repetir a cada (dias)"
+                type="number"
+                min={1}
+                value={form.recurrence_interval_days}
+                onChange={(e) => setForm({ ...form, recurrence_interval_days: e.target.value })}
+                disabled={!canManage}
+              />
+            )}
 
             <div>
               <p className="mb-1.5 text-sm font-medium">Responsáveis</p>

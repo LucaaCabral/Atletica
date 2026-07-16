@@ -48,7 +48,7 @@ export function CalendarPage() {
   const navigate = useNavigate();
   const { profile, can } = useAuth();
   const toast = useToast();
-  const canWrite = profile ? profile.role !== 'viewer' : false;
+  const canWrite = Boolean(profile);
   const canFinance = can('finance.view');
 
   const [view, setView] = useState<ViewMode>('month');

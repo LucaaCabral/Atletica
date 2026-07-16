@@ -8,17 +8,39 @@ import type {
   TransactionStatus,
   UserRole,
   CalendarCategory,
+  SectorType,
+  SectorGoalStatus,
+  TaskRecurrenceType,
 } from '@/types';
 
 export const roleLabels: Record<UserRole, string> = {
-  admin: 'Administrador',
-  director: 'Diretor',
-  member: 'Membro',
-  treasury: 'Tesouraria',
+  presidente: 'Presidente',
+  vice: 'Vice-Presidente',
+  diretor: 'Diretor',
+  assessor: 'Assessor',
+};
+
+export const sectorTypeLabels: Record<SectorType, string> = {
+  generic: 'Genérico',
+  esportes: 'Esportes',
   marketing: 'Marketing',
-  sports: 'Esportes',
-  coach: 'Treinador',
-  viewer: 'Visualizador',
+  patrocinio: 'Patrocínio',
+  socios: 'Sócios',
+  financeiro: 'Financeiro',
+};
+
+export const sectorGoalStatusLabels: Record<SectorGoalStatus, string> = {
+  not_started: 'Não iniciada',
+  in_progress: 'Em andamento',
+  achieved: 'Atingida',
+  missed: 'Não atingida',
+};
+
+export const taskRecurrenceLabels: Record<TaskRecurrenceType, string> = {
+  daily: 'Diária',
+  weekly: 'Semanal',
+  monthly: 'Mensal',
+  custom: 'Personalizada',
 };
 
 export const taskStatusLabels: Record<TaskStatus, string> = {

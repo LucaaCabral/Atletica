@@ -11,9 +11,47 @@ interface TabsProps {
   active: string;
   onChange: (id: string) => void;
   className?: string;
+  variant?: 'underline' | 'pill';
 }
 
-export function Tabs({ tabs, active, onChange, className }: TabsProps) {
+export function Tabs({ tabs, active, onChange, className, variant = 'underline' }: TabsProps) {
+  if (variant === 'pill') {
+    return (
+      <div
+        role="tablist"
+        className={cn(
+          'inline-flex w-full gap-1 overflow-x-auto rounded-xl bg-[var(--color-surface-secondary)] p-1',
+          className,
+        )}
+      >
+        {tabs.map((tab) => {
+          const isActive = tab.id === active;
+          return (
+            <button
+              key={tab.id}
+              role="tab"
+              aria-selected={isActive}
+              onClick={() => onChange(tab.id)}
+              className={cn(
+                'whitespace-nowrap rounded-lg px-3 py-1.5 text-sm font-medium transition-colors',
+                isActive
+                  ? 'bg-[var(--color-surface)] text-[var(--color-text)] shadow-[var(--shadow-card)]'
+                  : 'text-[var(--color-text-secondary)] hover:text-[var(--color-text)]',
+              )}
+            >
+              {tab.label}
+              {tab.count !== undefined && (
+                <span className="ml-1.5 rounded-full bg-[var(--color-surface-secondary)] px-1.5 py-0.5 text-xs">
+                  {tab.count}
+                </span>
+              )}
+            </button>
+          );
+        })}
+      </div>
+    );
+  }
+
   return (
     <div
       role="tablist"

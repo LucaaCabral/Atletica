@@ -104,7 +104,7 @@ export function Pagination({ page, pageSize, total, onPageChange }: PaginationPr
           aria-label="Página anterior"
           disabled={page <= 1}
           onClick={() => onPageChange(page - 1)}
-          className="rounded-lg border border-[var(--color-border)] p-1.5 disabled:opacity-40 hover:bg-[var(--color-surface-hover)]"
+          className="rounded-xl border border-[var(--color-border)] p-1.5 disabled:opacity-40 hover:bg-[var(--color-surface-hover)]"
         >
           <ChevronLeft size={16} />
         </button>
@@ -112,7 +112,7 @@ export function Pagination({ page, pageSize, total, onPageChange }: PaginationPr
           aria-label="Próxima página"
           disabled={page >= totalPages}
           onClick={() => onPageChange(page + 1)}
-          className="rounded-lg border border-[var(--color-border)] p-1.5 disabled:opacity-40 hover:bg-[var(--color-surface-hover)]"
+          className="rounded-xl border border-[var(--color-border)] p-1.5 disabled:opacity-40 hover:bg-[var(--color-surface-hover)]"
         >
           <ChevronRight size={16} />
         </button>

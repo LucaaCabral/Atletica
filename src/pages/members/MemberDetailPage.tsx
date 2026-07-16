@@ -29,7 +29,7 @@ export function MemberDetailPage() {
   const member = useQuery<Member | null>(async () => {
     const { data, error } = await supabase
       .from('members')
-      .select('*, department:departments(*), position:positions(*)')
+      .select('*, sector:sectors(*), position:positions(*)')
       .eq('id', id)
       .maybeSingle();
     if (error) throw new Error(error.message);
@@ -52,7 +52,7 @@ export function MemberDetailPage() {
   if (member.loading) return <FullPageSpinner />;
   if (member.error) return <ErrorState message={member.error} onRetry={() => void member.refetch()} />;
   if (!member.data) {
-    return <ErrorState message="Membro não encontrado." onRetry={() => navigate('/diretoria')} />;
+    return <ErrorState message="Membro não encontrado." onRetry={() => navigate('/membros')} />;
   }
 
   const m = member.data;
@@ -74,7 +74,7 @@ export function MemberDetailPage() {
     toast.success(newStatus === 'active' ? 'Membro reativado.' : 'Membro desativado.');
     void logActivity({
       action: 'update',
-      module: 'diretoria',
+      module: 'membros',
       entityType: 'member',
       entityId: m.id,
       summary: `${newStatus === 'active' ? 'Reativou' : 'Desativou'} o membro ${m.full_name}`,
@@ -93,12 +93,12 @@ export function MemberDetailPage() {
     toast.success('Membro excluído.');
     void logActivity({
       action: 'delete',
-      module: 'diretoria',
+      module: 'membros',
       entityType: 'member',
       entityId: m.id,
       summary: `Excluiu o membro ${m.full_name}`,
     });
-    navigate('/diretoria');
+    navigate('/membros');
   };
 
   return (
@@ -107,7 +107,7 @@ export function MemberDetailPage() {
         title={m.full_name}
         breadcrumbs={[
           { label: 'Início', to: '/' },
-          { label: 'Diretoria', to: '/diretoria' },
+          { label: 'Membros', to: '/membros' },
           { label: m.full_name },
         ]}
         actions={
@@ -144,8 +144,8 @@ export function MemberDetailPage() {
 
           <dl className="mt-5 space-y-3 text-sm">
             <div>
-              <dt className="text-xs font-medium uppercase text-[var(--color-text-muted)]">Diretoria</dt>
-              <dd>{m.department?.name ?? '—'}</dd>
+              <dt className="text-xs font-medium uppercase text-[var(--color-text-muted)]">Setor</dt>
+              <dd>{m.sector?.name ?? '—'}</dd>
             </div>
             <div>
               <dt className="text-xs font-medium uppercase text-[var(--color-text-muted)]">Cargo</dt>

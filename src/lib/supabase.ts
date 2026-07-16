@@ -24,14 +24,14 @@ export const DEMO_PROFILE: Profile = {
   nickname: 'Demo',
   phone: null,
   avatar_url: null,
-  role: 'admin',
-  department_id: null,
+  role: 'presidente',
+  sector_id: null,
   position_title: null,
   theme_preference: 'system',
   is_active: true,
   created_at: new Date().toISOString(),
   updated_at: new Date().toISOString(),
-  department: null,
+  sector: null,
 };
 
 const demoUser = {

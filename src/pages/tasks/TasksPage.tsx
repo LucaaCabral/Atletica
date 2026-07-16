@@ -18,7 +18,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/contexts/ToastContext';
 import { useQuery } from '@/hooks/useQuery';
 import { useDebounce } from '@/hooks/useDebounce';
-import type { Department, Event, Profile, Task, TaskStatus } from '@/types';
+import type { Sector, Event, Profile, Task, TaskStatus } from '@/types';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { Button, IconButton } from '@/components/ui/Button';
 import { Select, SearchInput } from '@/components/ui/Input';
@@ -29,6 +29,7 @@ import { DataTable, type Column } from '@/components/ui/DataTable';
 import { EmptyState, ErrorState, Skeleton } from '@/components/ui/State';
 import { TaskBoard } from '@/pages/tasks/TaskBoard';
 import { TaskModal } from '@/pages/tasks/TaskModal';
+import { generateNextOccurrence } from '@/services/recurrence';
 import { taskPriorityLabels, taskStatusLabels, taskStatusOrder } from '@/utils/labels';
 import { formatDate, isOverdue, todayISO } from '@/utils/format';
 import { cn } from '@/utils/cn';
@@ -45,7 +46,7 @@ export function TasksPage() {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState(searchParams.get('status') ?? '');
   const [priorityFilter, setPriorityFilter] = useState('');
-  const [departmentFilter, setDepartmentFilter] = useState('');
+  const [sectorFilter, setDepartmentFilter] = useState('');
   const [eventFilter, setEventFilter] = useState('');
   const [scopeFilter, setScopeFilter] = useState(searchParams.get('filtro') ?? '');
   const [calendarMonth, setCalendarMonth] = useState(() => startOfMonth(new Date()));
@@ -53,9 +54,9 @@ export function TasksPage() {
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const debouncedSearch = useDebounce(search);
 
-  const departments = useQuery<Department[]>(async () => {
-    const { data } = await supabase.from('departments').select('*').eq('is_active', true).order('name');
-    return (data ?? []) as Department[];
+  const departments = useQuery<Sector[]>(async () => {
+    const { data } = await supabase.from('sectors').select('*').eq('is_active', true).order('name');
+    return (data ?? []) as Sector[];
   });
 
   const profiles = useQuery<Profile[]>(async () => {
@@ -68,11 +69,17 @@ export function TasksPage() {
     return (data ?? []) as Pick<Event, 'id' | 'name'>[];
   });
 
+  const favorites = useQuery<Set<string>>(async () => {
+    if (!profile) return new Set();
+    const { data } = await supabase.from('task_favorites').select('task_id').eq('profile_id', profile.id);
+    return new Set((data ?? []).map((f) => f.task_id as string));
+  }, [profile?.id]);
+
   const tasks = useQuery<Task[]>(async () => {
     const { data, error } = await supabase
       .from('tasks')
       .select(
-        '*, department:departments(*), event:events(id, name), assignees:task_assignees(task_id, profile_id, created_at, profile:profiles(id, full_name, avatar_url))',
+        '*, sector:sectors(*), event:events(id, name), assignees:task_assignees(task_id, profile_id, created_at, profile:profiles(id, full_name, avatar_url))',
       )
       .eq('is_archived', false)
       .order('created_at', { ascending: false });
@@ -99,16 +106,17 @@ export function TasksPage() {
       if (debouncedSearch && !t.title.toLowerCase().includes(debouncedSearch.toLowerCase())) return false;
       if (statusFilter && t.status !== statusFilter) return false;
       if (priorityFilter && t.priority !== priorityFilter) return false;
-      if (departmentFilter && t.department_id !== departmentFilter) return false;
+      if (sectorFilter && t.sector_id !== sectorFilter) return false;
       if (eventFilter && t.event_id !== eventFilter) return false;
       if (scopeFilter === 'atrasadas') {
         if (!t.due_date || t.due_date >= today || ['done', 'cancelled'].includes(t.status)) return false;
       }
       if (scopeFilter === 'minhas' && !(t.assignees ?? []).some((a) => a.profile_id === profile?.id)) return false;
       if (scopeFilter === 'criadas' && t.created_by !== profile?.id) return false;
+      if (scopeFilter === 'favoritas' && !favorites.data?.has(t.id)) return false;
       return true;
     });
-  }, [tasks.data, debouncedSearch, statusFilter, priorityFilter, departmentFilter, eventFilter, scopeFilter, profile?.id]);
+  }, [tasks.data, debouncedSearch, statusFilter, priorityFilter, sectorFilter, eventFilter, scopeFilter, profile?.id, favorites.data]);
 
   const moveTask = async (taskId: string, status: TaskStatus) => {
     const task = tasks.data?.find((t) => t.id === taskId);
@@ -120,6 +128,9 @@ export function TasksPage() {
     if (error) {
       toast.error(`Erro ao mover tarefa: ${error.message}`);
       return;
+    }
+    if (status === 'done' && task.recurrence_type) {
+      void generateNextOccurrence(task);
     }
     void tasks.refetch();
   };
@@ -145,7 +156,7 @@ export function TasksPage() {
         </span>
       ),
     },
-    { key: 'department', header: 'Diretoria', render: (t) => t.department?.name ?? '—', hideOnMobile: true },
+    { key: 'sector', header: 'Setor', render: (t) => t.sector?.name ?? '—', hideOnMobile: true },
     {
       key: 'assignees',
       header: 'Responsáveis',
@@ -211,7 +222,7 @@ export function TasksPage() {
     <div>
       <PageHeader
         title="Tarefas"
-        description="Organize e acompanhe as demandas de todas as diretorias."
+        description="Organize e acompanhe as demandas de todos os setores."
         breadcrumbs={[{ label: 'Início', to: '/' }, { label: 'Tarefas' }]}
         actions={
           <>
@@ -262,10 +273,10 @@ export function TasksPage() {
           className="sm:w-40"
         />
         <Select
-          aria-label="Filtrar por diretoria"
+          aria-label="Filtrar por setor"
           options={(departments.data ?? []).map((d) => ({ value: d.id, label: d.name }))}
-          placeholder="Diretoria"
-          value={departmentFilter}
+          placeholder="Setor"
+          value={sectorFilter}
           onChange={(e) => setDepartmentFilter(e.target.value)}
           className="sm:w-44"
         />
@@ -283,6 +294,7 @@ export function TasksPage() {
             { value: 'atrasadas', label: 'Atrasadas' },
             { value: 'minhas', label: 'Atribuídas a mim' },
             { value: 'criadas', label: 'Criadas por mim' },
+            { value: 'favoritas', label: 'Favoritas' },
           ]}
           placeholder="Todas"
           value={scopeFilter}
@@ -412,7 +424,10 @@ export function TasksPage() {
         profiles={profiles.data ?? []}
         departments={departments.data ?? []}
         events={events.data ?? []}
-        onClose={() => setModalOpen(false)}
+        onClose={() => {
+          setModalOpen(false);
+          void favorites.refetch();
+        }}
         onSaved={() => void tasks.refetch()}
       />
     </div>

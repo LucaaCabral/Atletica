@@ -10,7 +10,7 @@ import { useQuery } from '@/hooks/useQuery';
 import { logActivity } from '@/services/activityLog';
 import { uploadFile, deleteFile, downloadFile } from '@/services/storage';
 import type {
-  Department,
+  Sector,
   DocumentItem,
   Event,
   EventMember,
@@ -125,9 +125,9 @@ export function EventDetailPage() {
     return (data ?? []) as Profile[];
   });
 
-  const departments = useQuery<Department[]>(async () => {
-    const { data } = await supabase.from('departments').select('*').eq('is_active', true).order('name');
-    return (data ?? []) as Department[];
+  const departments = useQuery<Sector[]>(async () => {
+    const { data } = await supabase.from('sectors').select('*').eq('is_active', true).order('name');
+    return (data ?? []) as Sector[];
   });
 
   const stats = useMemo(() => {
