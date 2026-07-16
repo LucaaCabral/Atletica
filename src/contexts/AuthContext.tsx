@@ -42,11 +42,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const loadProfile = useCallback(
     async (userId: string) => {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('profiles')
-        .select('*, sector:sectors(*)')
+        .select('*, sector:sectors!profiles_sector_id_fkey(*)')
         .eq('id', userId)
         .single();
+      if (error) {
+        console.error('Falha ao carregar perfil do usuário:', error);
+        return;
+      }
       if (data) {
         const p = data as Profile;
         setProfile(p);
