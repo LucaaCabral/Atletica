@@ -8,6 +8,8 @@ import {
   Handshake,
   FolderOpen,
   Search,
+  Layers,
+  Target,
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useDebounce } from '@/hooks/useDebounce';
@@ -18,7 +20,7 @@ interface SearchResult {
   id: string;
   title: string;
   subtitle: string;
-  kind: 'task' | 'event' | 'member' | 'athlete' | 'sponsor' | 'document';
+  kind: 'task' | 'event' | 'member' | 'athlete' | 'sponsor' | 'document' | 'sector' | 'goal';
   to: string;
 }
 
@@ -29,6 +31,8 @@ const kindIcons = {
   athlete: Trophy,
   sponsor: Handshake,
   document: FolderOpen,
+  sector: Layers,
+  goal: Target,
 };
 
 const kindLabels = {
@@ -38,6 +42,8 @@ const kindLabels = {
   athlete: 'Atleta',
   sponsor: 'Patrocinador',
   document: 'Documento',
+  sector: 'Setor',
+  goal: 'Meta',
 };
 
 export function GlobalSearch({ open, onClose }: { open: boolean; onClose: () => void }) {
@@ -70,7 +76,9 @@ export function GlobalSearch({ open, onClose }: { open: boolean; onClose: () => 
       supabase.from('athletes').select('id, full_name, course').ilike('full_name', like).limit(5),
       supabase.from('sponsors').select('id, company_name, segment').ilike('company_name', like).limit(5),
       supabase.from('documents').select('id, name, category').ilike('name', like).limit(5),
-    ]).then(([tasks, events, members, athletes, sponsors, documents]) => {
+      supabase.from('sectors').select('id, name, description').ilike('name', like).limit(5),
+      supabase.from('sector_goals').select('id, title, sector_id').ilike('title', like).limit(5),
+    ]).then(([tasks, events, members, athletes, sponsors, documents, sectors, goals]) => {
       if (cancelled) return;
       const items: SearchResult[] = [
         ...(tasks.data ?? []).map((t) => ({
@@ -115,6 +123,20 @@ export function GlobalSearch({ open, onClose }: { open: boolean; onClose: () => 
           kind: 'document' as const,
           to: '/documentos',
         })),
+        ...(sectors.data ?? []).map((s) => ({
+          id: s.id as string,
+          title: s.name as string,
+          subtitle: (s.description as string) ?? 'Setor',
+          kind: 'sector' as const,
+          to: `/setores/${s.id}`,
+        })),
+        ...(goals.data ?? []).map((g) => ({
+          id: g.id as string,
+          title: g.title as string,
+          subtitle: 'Meta',
+          kind: 'goal' as const,
+          to: `/setores/${g.sector_id}?aba=metas`,
+        })),
       ];
       setResults(items);
       setLoading(false);
@@ -136,7 +158,7 @@ export function GlobalSearch({ open, onClose }: { open: boolean; onClose: () => 
           type="search"
           value={term}
           onChange={(e) => setTerm(e.target.value)}
-          placeholder="Buscar tarefas, eventos, membros, atletas, patrocinadores, documentos…"
+          placeholder="Buscar tarefas, eventos, setores, membros, metas, documentos…"
           aria-label="Buscar no sistema"
           className="h-11 w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] pl-9 pr-3 text-sm focus:border-[var(--color-primary)]"
         />

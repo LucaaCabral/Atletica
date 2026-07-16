@@ -1,12 +1,13 @@
 import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Mail, Phone, Trash2, UserX, UserCheck } from 'lucide-react';
+import { differenceInCalendarDays, differenceInCalendarMonths } from 'date-fns';
+import { Mail, Phone, Trash2, UserX, UserCheck, History } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/contexts/ToastContext';
 import { useQuery } from '@/hooks/useQuery';
 import { logActivity } from '@/services/activityLog';
-import type { Member, Task } from '@/types';
+import type { ActivityLog, Member, Task } from '@/types';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
@@ -14,7 +15,7 @@ import { Avatar } from '@/components/ui/Avatar';
 import { Badge, taskStatusTones } from '@/components/ui/Badge';
 import { ConfirmModal } from '@/components/ui/Modal';
 import { EmptyState, ErrorState, FullPageSpinner } from '@/components/ui/State';
-import { formatDate } from '@/utils/format';
+import { formatDate, formatRelative } from '@/utils/format';
 import { taskStatusLabels } from '@/utils/labels';
 
 export function MemberDetailPage() {
@@ -49,6 +50,27 @@ export function MemberDetailPage() {
       .filter((t): t is Task => t !== null);
   }, [member.data?.user_id]);
 
+  const eventCount = useQuery<number>(async () => {
+    if (!member.data?.user_id) return 0;
+    const { count } = await supabase
+      .from('event_members')
+      .select('*', { count: 'exact', head: true })
+      .eq('profile_id', member.data.user_id);
+    return count ?? 0;
+  }, [member.data?.user_id]);
+
+  const timeline = useQuery<ActivityLog[]>(async () => {
+    if (!member.data?.user_id) return [];
+    const { data, error } = await supabase
+      .from('activity_logs')
+      .select('*')
+      .eq('user_id', member.data.user_id)
+      .order('created_at', { ascending: false })
+      .limit(15);
+    if (error) throw new Error(error.message);
+    return (data ?? []) as ActivityLog[];
+  }, [member.data?.user_id]);
+
   if (member.loading) return <FullPageSpinner />;
   if (member.error) return <ErrorState message={member.error} onRetry={() => void member.refetch()} />;
   if (!member.data) {
@@ -58,6 +80,16 @@ export function MemberDetailPage() {
   const m = member.data;
   const doneCount = (tasks.data ?? []).filter((t) => t.status === 'done').length;
   const openCount = (tasks.data ?? []).filter((t) => !['done', 'cancelled'].includes(t.status)).length;
+
+  const tenureText = (() => {
+    if (!m.joined_at) return null;
+    const start = new Date(`${m.joined_at}T00:00:00`);
+    const end = m.left_at ? new Date(`${m.left_at}T00:00:00`) : new Date();
+    const months = differenceInCalendarMonths(end, start);
+    if (months >= 1) return `${months} ${months === 1 ? 'mês' : 'meses'}`;
+    const days = differenceInCalendarDays(end, start);
+    return `${days} ${days === 1 ? 'dia' : 'dias'}`;
+  })();
 
   const toggleStatus = async () => {
     setWorking(true);
@@ -155,6 +187,12 @@ export function MemberDetailPage() {
               <dt className="text-xs font-medium uppercase text-[var(--color-text-muted)]">Entrada</dt>
               <dd>{formatDate(m.joined_at)}</dd>
             </div>
+            {tenureText && (
+              <div>
+                <dt className="text-xs font-medium uppercase text-[var(--color-text-muted)]">Tempo de gestão</dt>
+                <dd>{tenureText}</dd>
+              </div>
+            )}
             {m.left_at && (
               <div>
                 <dt className="text-xs font-medium uppercase text-[var(--color-text-muted)]">Saída</dt>
@@ -198,6 +236,21 @@ export function MemberDetailPage() {
             </Card>
           )}
 
+          <div className="grid grid-cols-3 gap-3">
+            <Card className="p-3 text-center">
+              <p className="text-xl font-bold">{openCount + doneCount}</p>
+              <p className="text-xs text-[var(--color-text-secondary)]">Tarefas</p>
+            </Card>
+            <Card className="p-3 text-center">
+              <p className="text-xl font-bold">{eventCount.data ?? 0}</p>
+              <p className="text-xs text-[var(--color-text-secondary)]">Eventos</p>
+            </Card>
+            <Card className="p-3 text-center">
+              <p className="text-xl font-bold">{tenureText ?? '—'}</p>
+              <p className="text-xs text-[var(--color-text-secondary)]">Na gestão</p>
+            </Card>
+          </div>
+
           <Card className="p-5">
             <div className="mb-3 flex items-center justify-between">
               <h3 className="text-sm font-semibold">Tarefas atribuídas</h3>
@@ -229,6 +282,33 @@ export function MemberDetailPage() {
                   </li>
                 ))}
               </ul>
+            )}
+          </Card>
+
+          <Card className="p-5">
+            <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold">
+              <History size={15} className="text-[var(--color-text-muted)]" aria-hidden />
+              Linha do tempo
+            </h3>
+            {!m.user_id ? (
+              <p className="text-sm text-[var(--color-text-muted)]">
+                Sem histórico: este membro ainda não está vinculado a um usuário do sistema.
+              </p>
+            ) : (timeline.data ?? []).length === 0 ? (
+              <EmptyState title="Sem atividade registrada" description="As ações deste membro no sistema aparecerão aqui." />
+            ) : (
+              <ol className="relative space-y-3 border-l-2 border-[var(--color-border)] pl-5">
+                {(timeline.data ?? []).map((log) => (
+                  <li key={log.id} className="relative">
+                    <span
+                      aria-hidden
+                      className="absolute -left-[25px] top-1 h-2.5 w-2.5 rounded-full bg-[var(--color-primary)]"
+                    />
+                    <p className="text-sm">{log.summary ?? `${log.action} em ${log.module}`}</p>
+                    <p className="text-xs text-[var(--color-text-muted)]">{formatRelative(log.created_at)}</p>
+                  </li>
+                ))}
+              </ol>
             )}
           </Card>
 

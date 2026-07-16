@@ -320,9 +320,11 @@ export function TasksPage() {
           onAction={canManage ? openCreate : undefined}
         />
       ) : view === 'kanban' ? (
-        <TaskBoard tasks={filtered} onMoveTask={(id, s) => void moveTask(id, s)} onOpenTask={openTask} canManage={canManage} />
+        <div key={view} className="animate-fade-in">
+          <TaskBoard tasks={filtered} onMoveTask={(id, s) => void moveTask(id, s)} onOpenTask={openTask} canManage={canManage} />
+        </div>
       ) : view === 'list' ? (
-        <Card>
+        <Card key={view} className="animate-fade-in">
           <DataTable
             columns={columns}
             rows={filtered}
@@ -332,7 +334,7 @@ export function TasksPage() {
           />
         </Card>
       ) : view === 'calendar' ? (
-        <Card className="p-4">
+        <Card key={view} className="animate-fade-in p-4">
           <div className="mb-3 flex items-center justify-between">
             <h3 className="font-semibold capitalize">{format(calendarMonth, 'MMMM yyyy', { locale: ptBR })}</h3>
             <div className="flex gap-1">
@@ -386,7 +388,7 @@ export function TasksPage() {
           </div>
         </Card>
       ) : (
-        <div className="space-y-4">
+        <div key={view} className="animate-fade-in space-y-4">
           {timelineGroups.length === 0 ? (
             <EmptyState title="Sem tarefas com prazo" description="Defina prazos para visualizar a timeline." />
           ) : (

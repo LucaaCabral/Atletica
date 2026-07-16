@@ -168,7 +168,7 @@ export function DashboardPage() {
       )}
 
       {/* Minhas tarefas / Próxima reunião / Resumo dos setores / Avisos */}
-      <div className="grid flex-1 gap-4 lg:grid-cols-4">
+      <div className="grid flex-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Card className="flex max-h-80 flex-col p-4 lg:max-h-none">
           <div className="mb-2 flex items-center justify-between">
             <h3 className="text-sm font-semibold">Minhas tarefas</h3>

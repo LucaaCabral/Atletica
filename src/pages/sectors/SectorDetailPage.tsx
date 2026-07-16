@@ -316,6 +316,7 @@ export function SectorDetailPage() {
 
       <Tabs tabs={tabItems} active={tab} onChange={(v) => setTab(v as SectorTab)} variant="pill" className="mb-4" />
 
+      <div key={tab} className="animate-fade-in">
       {tab === 'dashboard' && (
         <div>
           <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
@@ -649,6 +650,7 @@ export function SectorDetailPage() {
           )}
         </div>
       )}
+      </div>
 
       <TaskModal
         open={taskModalOpen}
